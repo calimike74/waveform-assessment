@@ -603,20 +603,109 @@ Each Claude API call costs approximately $0.01-0.03 depending on image size. For
 - Hand-drawn wobbly lines create ambiguity
 - AI confidence varies with drawing quality
 
-**Planned Improvement - Show Correct Answer:**
-Instead of asking AI to count from scratch, we could:
-1. Generate the mathematically correct waveform programmatically
-2. Show both drawings to the AI (student's attempt + ideal answer)
-3. Ask AI to compare similarity rather than count absolutely
+---
 
-This approach would be more reliable because:
-- The correct answer is deterministic (octave up = 2x cycles)
-- Comparison is easier than absolute counting
-- Students get visual feedback showing what they should have drawn
+## Part 13: Correct Answer Overlay and Comparison-Based Marking
+
+### The Problem with Absolute Counting
+
+Initial AI marking asked Claude to count cycles in the student's drawing from scratch. This had limitations:
+- Hand-drawn wobbly lines create ambiguity
+- Vision models can struggle with precise counting
+- No visual reference for what "correct" looks like
+
+### The Solution: Comparison-Based Marking
+
+Instead of counting from scratch, we:
+1. **Generate the mathematically correct waveform** programmatically
+2. **Send both images to Claude** (student drawing + correct answer)
+3. **Ask Claude to compare** rather than count absolutely
+
+### Step 1: Correct Answer Generator
+
+Added waveform shape functions to the teacher dashboard:
+
+```javascript
+const waveformShapes = {
+    sine: (progress, cycles) => Math.sin(progress * cycles * 2 * Math.PI),
+    square: (progress, cycles) => Math.sign(Math.sin(progress * cycles * 2 * Math.PI)),
+    saw: (progress, cycles) => {
+        const phase = (progress * cycles) % 1;
+        return 2 * phase - 1;
+    },
+    triangle: (progress, cycles) => {
+        const phase = (progress * cycles) % 1;
+        return 4 * Math.abs(phase - 0.5) - 1;
+    }
+};
+```
+
+### Step 2: Canvas Rendering
+
+Created a `generateCorrectAnswer` function that:
+1. Creates an off-screen canvas (700x350 pixels)
+2. Draws a grid background matching the assessment style
+3. Renders the original waveform (dashed gray line)
+4. Renders the correct answer (solid green line)
+5. Adds labels showing cycle counts
+6. Returns a base64-encoded PNG image
+
+### Step 3: Side-by-Side Display
+
+Updated the teacher dashboard modal to show both images:
+
+```
+┌─────────────────────┬─────────────────────┐
+│  STUDENT'S DRAWING  │   CORRECT ANSWER    │
+│  (blue border)      │   (green border)    │
+├─────────────────────┼─────────────────────┤
+│ Original: gray dash │ Original: gray dash │
+│ Student: blue solid │ Correct: green solid│
+└─────────────────────┴─────────────────────┘
+```
+
+### Step 4: Updated AI Prompt
+
+When both images are available, the prompt changes:
+
+```
+You have TWO IMAGES to compare:
+1. FIRST IMAGE (Student's Drawing): Shows the student's attempt (solid blue)
+2. SECOND IMAGE (Correct Answer): Shows the CORRECT answer (solid green)
+
+MARKING INSTRUCTIONS:
+Compare the student's BLUE line in Image 1 with the CORRECT GREEN line
+in Image 2. Mark based on how closely they match.
+```
+
+### Why This Works Better
+
+| Aspect | Before (Absolute) | After (Comparison) |
+|--------|-------------------|-------------------|
+| Cycle Counting | Count from scratch | Compare to reference |
+| Shape Detection | Identify by features | Match against ideal |
+| Confidence | Medium | High |
+| Feedback Quality | Generic | Specific comparison |
+
+### Visual Feedback Benefits
+
+Teachers can now see:
+- Exactly what the student drew
+- Exactly what they should have drawn
+- How they differ at a glance
+
+This makes manual review much faster even without AI marking.
+
+### Implementation Files
+
+| File | Changes |
+|------|---------|
+| `app/teacher/page.js` | Added waveformShapes, generateCorrectAnswer function, side-by-side UI |
+| `app/api/ai-mark/route.js` | Accept correctAnswerImage, dual-image prompt, message content builder |
 
 ---
 
-## Part 13: Key Learnings
+## Part 14: Key Learnings
 
 ### Technical Insights
 
@@ -647,10 +736,10 @@ This project demonstrates:
 ### Completed
 - [x] Create teacher dashboard for viewing submissions
 - [x] Add AI marking with Claude Vision API
+- [x] **Show correct answer overlay** - Generate ideal waveform and display alongside student drawing
+- [x] **Improve AI accuracy** - Send both student drawing and correct answer for comparison marking
 
 ### Immediate Enhancements
-- [ ] **Show correct answer overlay** - Generate ideal waveform and display alongside student drawing
-- [ ] **Improve AI accuracy** - Send both student drawing and correct answer for comparison marking
 - [ ] Add student authentication (optional login)
 - [ ] Add more waveform types (pulse, noise)
 
