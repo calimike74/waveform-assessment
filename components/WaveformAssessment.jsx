@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 // ============================================
 // OCTAVE WAVEFORM DRAWING ASSESSMENT
@@ -484,10 +485,36 @@ const WaveformAssessment = () => {
         });
     };
 
+    // Save drawing to Supabase
+    const saveToDatabase = async (imageData) => {
+        try {
+            const { error } = await supabase
+                .from('submissions')
+                .insert({
+                    student_name: studentName,
+                    challenge_number: currentChallenge + 1,
+                    original_shape: currentChallengeData.originalShape,
+                    target_shape: currentChallengeData.targetShape,
+                    direction: currentChallengeData.direction,
+                    octaves: currentChallengeData.octaves,
+                    drawing_image: imageData,
+                });
+
+            if (error) {
+                console.error('Failed to save to database:', error);
+            }
+        } catch (err) {
+            console.error('Database save error:', err);
+        }
+    };
+
     // Copy to clipboard
     const copyToClipboard = async () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
+
+        // Get image data for saving
+        const imageData = canvas.toDataURL('image/png');
 
         try {
             const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
@@ -496,16 +523,23 @@ const WaveformAssessment = () => {
             ]);
             setCopyStatus('copied');
             setCopiedChallenges(prev => new Set([...prev, currentChallenge]));
+
+            // Save to database
+            saveToDatabase(imageData);
+
             setTimeout(() => setCopyStatus(null), 3000);
         } catch (err) {
             console.error('Clipboard copy failed:', err);
-            const dataUrl = canvas.toDataURL('image/png');
-            setModalImageUrl(dataUrl);
+            setModalImageUrl(imageData);
             setShowCopyModal(true);
         }
     };
 
     const handleModalCopied = () => {
+        // Save to database when using right-click copy fallback
+        if (modalImageUrl) {
+            saveToDatabase(modalImageUrl);
+        }
         setShowCopyModal(false);
         setModalImageUrl(null);
         setCopyStatus('copied');
