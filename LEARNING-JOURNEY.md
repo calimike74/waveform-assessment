@@ -485,7 +485,138 @@ Live at waveform-assessment.vercel.app
 
 ---
 
-## Part 12: Key Learnings
+## Part 12: Adding AI Marking with Claude Vision
+
+### The Goal
+
+Instead of manually marking each student's drawing, use AI to automatically:
+- Count the cycles in the student's drawing
+- Check if the waveform shape is correct
+- Provide specific feedback
+- Suggest a mark out of 10
+
+### Why Claude Vision?
+
+Claude's vision API can analyze images and understand what it "sees". For waveform drawings:
+- It can count the number of complete cycles
+- It can identify waveform shapes (sine, square, saw, triangle)
+- It can compare the student's drawing against expected criteria
+
+### Step 1: Install Anthropic SDK
+
+```bash
+npm install @anthropic-ai/sdk
+```
+
+### Step 2: Create API Route
+
+Next.js API routes let us run server-side code. We created `/app/api/ai-mark/route.js`:
+
+```javascript
+import Anthropic from '@anthropic-ai/sdk';
+
+export async function POST(request) {
+    const { submissionId } = await request.json();
+
+    // Fetch submission from database
+    // Calculate expected cycles based on challenge
+    // Send image to Claude with marking prompt
+    // Return structured feedback
+}
+```
+
+**Why an API route?** The Anthropic API key must stay secret. API routes run on the server, so the key is never exposed to browsers.
+
+### Step 3: Design the Marking Prompt
+
+The prompt tells Claude exactly what to look for:
+
+```
+IMAGE CONTEXT:
+- Dashed gray line: Original waveform (4 cycles sine)
+- Solid blue line: Student's drawn answer
+
+TASK:
+Draw a sine wave that is 1 octave higher (should have 8 cycles)
+
+MARKING CRITERIA (10 marks total):
+- Cycle Count (4 marks): Correct number of cycles?
+- Shape Accuracy (4 marks): Correct waveform shape?
+- Drawing Quality (2 marks): Clear and consistent?
+```
+
+### Step 4: Parse Structured Response
+
+We ask Claude to return JSON:
+
+```json
+{
+  "cycleCount": {
+    "detected": 8,
+    "expected": 8,
+    "correct": true,
+    "marks": 4
+  },
+  "shapeAccuracy": {
+    "detected": "sine",
+    "expected": "sine",
+    "correct": true,
+    "marks": 4
+  },
+  "drawingQuality": {
+    "marks": 2
+  },
+  "suggestedMark": 10,
+  "overallFeedback": "Excellent work!",
+  "strengths": ["Correct cycle count", "Clear waveform shape"],
+  "improvements": []
+}
+```
+
+### Step 5: Update Teacher Dashboard
+
+Added to the modal view:
+- "Get AI Feedback" button
+- Loading state while analyzing
+- Display of AI marks and feedback
+- Color-coded mark badge (green/amber/red)
+- Strengths and improvements lists
+
+### Database Schema Update
+
+Added columns for storing AI feedback:
+
+```sql
+ALTER TABLE submissions ADD COLUMN ai_feedback JSONB;
+ALTER TABLE submissions ADD COLUMN ai_marked_at TIMESTAMPTZ;
+ALTER TABLE submissions ADD COLUMN ai_mark INTEGER;
+```
+
+### Cost Considerations
+
+Each Claude API call costs approximately $0.01-0.03 depending on image size. For a class of 30 students with 10 challenges each, that's roughly $3-9 per complete assessment cycle.
+
+### Limitations and Future Improvements
+
+**Current Limitations:**
+- Vision models can struggle with precise cycle counting
+- Hand-drawn wobbly lines create ambiguity
+- AI confidence varies with drawing quality
+
+**Planned Improvement - Show Correct Answer:**
+Instead of asking AI to count from scratch, we could:
+1. Generate the mathematically correct waveform programmatically
+2. Show both drawings to the AI (student's attempt + ideal answer)
+3. Ask AI to compare similarity rather than count absolutely
+
+This approach would be more reliable because:
+- The correct answer is deterministic (octave up = 2x cycles)
+- Comparison is easier than absolute counting
+- Students get visual feedback showing what they should have drawn
+
+---
+
+## Part 13: Key Learnings
 
 ### Technical Insights
 
@@ -513,17 +644,22 @@ This project demonstrates:
 
 ## Next Steps and Future Improvements
 
+### Completed
+- [x] Create teacher dashboard for viewing submissions
+- [x] Add AI marking with Claude Vision API
+
 ### Immediate Enhancements
+- [ ] **Show correct answer overlay** - Generate ideal waveform and display alongside student drawing
+- [ ] **Improve AI accuracy** - Send both student drawing and correct answer for comparison marking
 - [ ] Add student authentication (optional login)
-- [ ] Create teacher dashboard for viewing submissions
 - [ ] Add more waveform types (pulse, noise)
-- [ ] Include difficulty levels
 
 ### Advanced Features
+- [ ] Batch marking - Mark all submissions at once
+- [ ] Export results to CSV
 - [ ] Real-time leaderboard
 - [ ] Practice mode vs assessment mode toggle
 - [ ] Detailed analytics on common mistakes
-- [ ] Export results to CSV
 
 ### Infrastructure
 - [ ] Add error monitoring (Sentry)
