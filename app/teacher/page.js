@@ -43,6 +43,10 @@ export default function TeacherDashboard() {
     const [correctAnswerImage, setCorrectAnswerImage] = useState(null);
     const correctAnswerCanvasRef = useRef(null);
 
+    // Batch marking state
+    const [batchMarking, setBatchMarking] = useState(false);
+    const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+
     // Simple password check (you can change this)
     const TEACHER_PASSWORD = 'teacher2024';
 
@@ -248,6 +252,137 @@ export default function TeacherDashboard() {
         }
     };
 
+    // Batch mark all unmarked submissions
+    const batchMarkAll = async () => {
+        const unmarked = filteredSubmissions.filter(s => !s.ai_feedback);
+        if (unmarked.length === 0) {
+            alert('All submissions in current view are already marked!');
+            return;
+        }
+
+        setBatchMarking(true);
+        setBatchProgress({ current: 0, total: unmarked.length });
+
+        for (let i = 0; i < unmarked.length; i++) {
+            const sub = unmarked[i];
+            setBatchProgress({ current: i + 1, total: unmarked.length });
+
+            try {
+                const correctImage = generateCorrectAnswer(sub);
+
+                const response = await fetch('/api/ai-mark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        submissionId: sub.id,
+                        correctAnswerImage: correctImage
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    setSubmissions(prev => prev.map(s =>
+                        s.id === sub.id
+                            ? { ...s, ai_feedback: data.feedback, ai_mark: data.feedback.suggestedMark, ai_marked_at: data.markedAt }
+                            : s
+                    ));
+                }
+            } catch (error) {
+                console.error(`Failed to mark submission ${sub.id}:`, error);
+            }
+
+            // Small delay between requests
+            if (i < unmarked.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+
+        setBatchMarking(false);
+        setBatchProgress({ current: 0, total: 0 });
+    };
+
+    // Export submissions to CSV
+    const exportToCSV = () => {
+        const dataToExport = filteredSubmissions.length > 0 ? filteredSubmissions : submissions;
+
+        if (dataToExport.length === 0) {
+            alert('No submissions to export');
+            return;
+        }
+
+        // CSV headers
+        const headers = [
+            'Student Name',
+            'Challenge Number',
+            'Original Shape',
+            'Target Shape',
+            'Octaves',
+            'Direction',
+            'AI Mark',
+            'Cycle Count (Detected)',
+            'Cycle Count (Expected)',
+            'Cycle Count Correct',
+            'Shape Detected',
+            'Shape Correct',
+            'Drawing Quality Marks',
+            'Overall Feedback',
+            'Strengths',
+            'Improvements',
+            'Submitted At',
+            'AI Marked At'
+        ];
+
+        // Convert submissions to CSV rows
+        const rows = dataToExport.map(sub => {
+            const feedback = sub.ai_feedback || {};
+            return [
+                sub.student_name,
+                sub.challenge_number,
+                sub.original_shape,
+                sub.target_shape,
+                sub.octaves,
+                sub.direction,
+                sub.ai_mark ?? '',
+                feedback.cycleCount?.detected ?? '',
+                feedback.cycleCount?.expected ?? '',
+                feedback.cycleCount?.correct ?? '',
+                feedback.shapeAccuracy?.detected ?? '',
+                feedback.shapeAccuracy?.correct ?? '',
+                feedback.drawingQuality?.marks ?? '',
+                (feedback.overallFeedback || '').replace(/"/g, '""'),
+                (feedback.strengths || []).join('; ').replace(/"/g, '""'),
+                (feedback.improvements || []).join('; ').replace(/"/g, '""'),
+                new Date(sub.created_at).toLocaleString(),
+                sub.ai_marked_at ? new Date(sub.ai_marked_at).toLocaleString() : ''
+            ];
+        });
+
+        // Build CSV content
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell =>
+                typeof cell === 'string' && (cell.includes(',') || cell.includes('"') || cell.includes('\n'))
+                    ? `"${cell}"`
+                    : cell
+            ).join(','))
+        ].join('\n');
+
+        // Create download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const filterDesc = filter.student || filter.challenge
+            ? `_${filter.student || 'all'}_ch${filter.challenge || 'all'}`
+            : '';
+        link.download = `waveform_submissions${filterDesc}_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     // Get unique student names for filter
     const studentNames = [...new Set(submissions.map(s => s.student_name))].sort();
 
@@ -372,20 +507,58 @@ export default function TeacherDashboard() {
                             {submissions.length} total submissions from {studentNames.length} students
                         </p>
                     </div>
-                    <button
-                        onClick={fetchSubmissions}
-                        disabled={loading}
-                        style={{
-                            padding: '0.625rem 1.25rem',
-                            background: theme.bg.surface,
-                            border: `1px solid ${theme.border.medium}`,
-                            borderRadius: '8px',
-                            color: theme.text.secondary,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        {loading ? 'Loading...' : 'Refresh'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={exportToCSV}
+                            disabled={loading || submissions.length === 0}
+                            style={{
+                                padding: '0.625rem 1.25rem',
+                                background: theme.accent.green,
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: '#fff',
+                                cursor: submissions.length === 0 ? 'not-allowed' : 'pointer',
+                                fontWeight: '500',
+                                opacity: submissions.length === 0 ? 0.5 : 1,
+                            }}
+                        >
+                            Export CSV
+                        </button>
+                        <button
+                            onClick={batchMarkAll}
+                            disabled={loading || batchMarking || filteredSubmissions.length === 0}
+                            style={{
+                                padding: '0.625rem 1.25rem',
+                                background: batchMarking
+                                    ? theme.bg.deep
+                                    : `linear-gradient(135deg, ${theme.accent.blue} 0%, #4a8cd4 100%)`,
+                                border: 'none',
+                                borderRadius: '8px',
+                                color: '#fff',
+                                cursor: batchMarking ? 'wait' : 'pointer',
+                                fontWeight: '500',
+                                minWidth: '160px',
+                            }}
+                        >
+                            {batchMarking
+                                ? `Marking ${batchProgress.current}/${batchProgress.total}...`
+                                : `Mark All Unmarked (${filteredSubmissions.filter(s => !s.ai_feedback).length})`}
+                        </button>
+                        <button
+                            onClick={fetchSubmissions}
+                            disabled={loading}
+                            style={{
+                                padding: '0.625rem 1.25rem',
+                                background: theme.bg.surface,
+                                border: `1px solid ${theme.border.medium}`,
+                                borderRadius: '8px',
+                                color: theme.text.secondary,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {loading ? 'Loading...' : 'Refresh'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Filters */}
