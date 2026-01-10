@@ -10,6 +10,8 @@ export default function TeacherDashboard() {
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState({ student: '', challenge: '' });
     const [selectedSubmission, setSelectedSubmission] = useState(null);
+    const [markingId, setMarkingId] = useState(null);
+    const [markingError, setMarkingError] = useState(null);
 
     // Simple password check (you can change this)
     const TEACHER_PASSWORD = 'teacher2024';
@@ -39,6 +41,48 @@ export default function TeacherDashboard() {
             alert('Failed to load submissions');
         }
         setLoading(false);
+    };
+
+    // Request AI marking for a submission
+    const requestAIMarking = async (submissionId) => {
+        setMarkingId(submissionId);
+        setMarkingError(null);
+
+        try {
+            const response = await fetch('/api/ai-mark', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ submissionId }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to get AI feedback');
+            }
+
+            // Update local state with feedback
+            setSubmissions(prev => prev.map(sub =>
+                sub.id === submissionId
+                    ? { ...sub, ai_feedback: data.feedback, ai_mark: data.feedback.suggestedMark, ai_marked_at: data.markedAt }
+                    : sub
+            ));
+
+            // Update selected submission if it's the one being marked
+            if (selectedSubmission?.id === submissionId) {
+                setSelectedSubmission(prev => ({
+                    ...prev,
+                    ai_feedback: data.feedback,
+                    ai_mark: data.feedback.suggestedMark,
+                    ai_marked_at: data.markedAt
+                }));
+            }
+        } catch (error) {
+            console.error('AI marking error:', error);
+            setMarkingError(error.message);
+        } finally {
+            setMarkingId(null);
+        }
     };
 
     // Get unique student names for filter
@@ -306,16 +350,34 @@ export default function TeacherDashboard() {
                                         }}>
                                             {sub.student_name}
                                         </span>
-                                        <span style={{
-                                            background: theme.accent.amber + '20',
-                                            color: theme.accent.amber,
-                                            padding: '0.2rem 0.5rem',
-                                            borderRadius: '4px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                        }}>
-                                            #{sub.challenge_number}
-                                        </span>
+                                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                            {sub.ai_mark !== undefined && sub.ai_mark !== null && (
+                                                <span style={{
+                                                    background: sub.ai_mark >= 8
+                                                        ? theme.accent.green
+                                                        : sub.ai_mark >= 5
+                                                        ? theme.accent.amber
+                                                        : theme.accent.red,
+                                                    color: '#fff',
+                                                    padding: '0.2rem 0.4rem',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: '700',
+                                                }}>
+                                                    {sub.ai_mark}/10
+                                                </span>
+                                            )}
+                                            <span style={{
+                                                background: theme.accent.amber + '20',
+                                                color: theme.accent.amber,
+                                                padding: '0.2rem 0.5rem',
+                                                borderRadius: '4px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: '600',
+                                            }}>
+                                                #{sub.challenge_number}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div style={{
                                         color: theme.text.tertiary,
@@ -420,6 +482,245 @@ export default function TeacherDashboard() {
                                     <div style={{ color: theme.text.secondary, fontSize: '0.85rem' }}>
                                         <strong>Task:</strong> Draw a {selectedSubmission.target_shape} wave {selectedSubmission.octaves} octave{selectedSubmission.octaves > 1 ? 's' : ''} {selectedSubmission.direction} from the original {selectedSubmission.original_shape} wave.
                                     </div>
+                                </div>
+
+                                {/* AI Marking Section */}
+                                <div style={{
+                                    marginTop: '1.5rem',
+                                    padding: '1rem',
+                                    background: theme.bg.surface,
+                                    borderRadius: '8px',
+                                    border: `1px solid ${theme.border.medium}`,
+                                }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        marginBottom: '1rem',
+                                    }}>
+                                        <h3 style={{ color: theme.text.primary, fontSize: '1rem', margin: 0 }}>
+                                            AI Marking
+                                        </h3>
+                                        {!selectedSubmission.ai_feedback && (
+                                            <button
+                                                onClick={() => requestAIMarking(selectedSubmission.id)}
+                                                disabled={markingId === selectedSubmission.id}
+                                                style={{
+                                                    padding: '0.5rem 1rem',
+                                                    background: markingId === selectedSubmission.id
+                                                        ? theme.bg.deep
+                                                        : `linear-gradient(135deg, ${theme.accent.blue} 0%, #4a8cd4 100%)`,
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    color: theme.text.primary,
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '500',
+                                                    cursor: markingId === selectedSubmission.id ? 'wait' : 'pointer',
+                                                    opacity: markingId === selectedSubmission.id ? 0.7 : 1,
+                                                }}
+                                            >
+                                                {markingId === selectedSubmission.id ? 'Analyzing...' : 'Get AI Feedback'}
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {markingError && (
+                                        <div style={{
+                                            padding: '0.75rem',
+                                            background: theme.accent.red + '20',
+                                            borderRadius: '6px',
+                                            color: theme.accent.red,
+                                            fontSize: '0.85rem',
+                                            marginBottom: '1rem',
+                                        }}>
+                                            {markingError}
+                                        </div>
+                                    )}
+
+                                    {selectedSubmission.ai_feedback ? (
+                                        <div>
+                                            {/* Mark Badge */}
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '1rem',
+                                                marginBottom: '1rem',
+                                            }}>
+                                                <div style={{
+                                                    width: '60px',
+                                                    height: '60px',
+                                                    borderRadius: '12px',
+                                                    background: selectedSubmission.ai_feedback.suggestedMark >= 8
+                                                        ? theme.accent.green
+                                                        : selectedSubmission.ai_feedback.suggestedMark >= 5
+                                                        ? theme.accent.amber
+                                                        : theme.accent.red,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flexDirection: 'column',
+                                                }}>
+                                                    <span style={{
+                                                        color: '#fff',
+                                                        fontSize: '1.5rem',
+                                                        fontWeight: '700',
+                                                        lineHeight: 1,
+                                                    }}>
+                                                        {selectedSubmission.ai_feedback.suggestedMark}
+                                                    </span>
+                                                    <span style={{
+                                                        color: 'rgba(255,255,255,0.8)',
+                                                        fontSize: '0.65rem',
+                                                        fontWeight: '500',
+                                                    }}>
+                                                        /10
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <div style={{ color: theme.text.primary, fontWeight: '600', marginBottom: '0.25rem' }}>
+                                                        {selectedSubmission.ai_feedback.suggestedMark >= 8 ? 'Excellent' :
+                                                         selectedSubmission.ai_feedback.suggestedMark >= 6 ? 'Good' :
+                                                         selectedSubmission.ai_feedback.suggestedMark >= 4 ? 'Needs Improvement' : 'Incorrect'}
+                                                    </div>
+                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.75rem' }}>
+                                                        Confidence: {selectedSubmission.ai_feedback.confidence || 'N/A'}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Marking Criteria */}
+                                            <div style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: 'repeat(3, 1fr)',
+                                                gap: '0.75rem',
+                                                marginBottom: '1rem',
+                                            }}>
+                                                {/* Cycle Count */}
+                                                <div style={{
+                                                    padding: '0.75rem',
+                                                    background: theme.bg.deep,
+                                                    borderRadius: '6px',
+                                                    borderLeft: `3px solid ${selectedSubmission.ai_feedback.cycleCount?.correct ? theme.accent.green : theme.accent.red}`,
+                                                }}>
+                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem', marginBottom: '0.25rem' }}>
+                                                        CYCLES
+                                                    </div>
+                                                    <div style={{ color: theme.text.primary, fontWeight: '600', fontSize: '0.9rem' }}>
+                                                        {selectedSubmission.ai_feedback.cycleCount?.detected || '?'} / {selectedSubmission.ai_feedback.cycleCount?.expected || '?'}
+                                                    </div>
+                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem' }}>
+                                                        {selectedSubmission.ai_feedback.cycleCount?.marks || 0}/4 marks
+                                                    </div>
+                                                </div>
+
+                                                {/* Shape */}
+                                                <div style={{
+                                                    padding: '0.75rem',
+                                                    background: theme.bg.deep,
+                                                    borderRadius: '6px',
+                                                    borderLeft: `3px solid ${selectedSubmission.ai_feedback.shapeAccuracy?.correct ? theme.accent.green : theme.accent.red}`,
+                                                }}>
+                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem', marginBottom: '0.25rem' }}>
+                                                        SHAPE
+                                                    </div>
+                                                    <div style={{ color: theme.text.primary, fontWeight: '600', fontSize: '0.9rem', textTransform: 'capitalize' }}>
+                                                        {selectedSubmission.ai_feedback.shapeAccuracy?.detected || '?'}
+                                                    </div>
+                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem' }}>
+                                                        {selectedSubmission.ai_feedback.shapeAccuracy?.marks || 0}/4 marks
+                                                    </div>
+                                                </div>
+
+                                                {/* Quality */}
+                                                <div style={{
+                                                    padding: '0.75rem',
+                                                    background: theme.bg.deep,
+                                                    borderRadius: '6px',
+                                                    borderLeft: `3px solid ${theme.accent.blue}`,
+                                                }}>
+                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem', marginBottom: '0.25rem' }}>
+                                                        QUALITY
+                                                    </div>
+                                                    <div style={{ color: theme.text.primary, fontWeight: '600', fontSize: '0.9rem' }}>
+                                                        {selectedSubmission.ai_feedback.drawingQuality?.marks || 0}/2
+                                                    </div>
+                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem' }}>
+                                                        marks
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Overall Feedback */}
+                                            <div style={{
+                                                padding: '0.75rem',
+                                                background: theme.bg.deep,
+                                                borderRadius: '6px',
+                                                marginBottom: '0.75rem',
+                                            }}>
+                                                <div style={{ color: theme.text.secondary, fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                                    {selectedSubmission.ai_feedback.overallFeedback}
+                                                </div>
+                                            </div>
+
+                                            {/* Strengths & Improvements */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                                {selectedSubmission.ai_feedback.strengths?.length > 0 && (
+                                                    <div>
+                                                        <div style={{ color: theme.accent.green, fontSize: '0.75rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+                                                            STRENGTHS
+                                                        </div>
+                                                        <ul style={{ margin: 0, paddingLeft: '1rem', color: theme.text.secondary, fontSize: '0.8rem' }}>
+                                                            {selectedSubmission.ai_feedback.strengths.map((s, i) => (
+                                                                <li key={i} style={{ marginBottom: '0.25rem' }}>{s}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {selectedSubmission.ai_feedback.improvements?.length > 0 && (
+                                                    <div>
+                                                        <div style={{ color: theme.accent.amber, fontSize: '0.75rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+                                                            TO IMPROVE
+                                                        </div>
+                                                        <ul style={{ margin: 0, paddingLeft: '1rem', color: theme.text.secondary, fontSize: '0.8rem' }}>
+                                                            {selectedSubmission.ai_feedback.improvements.map((s, i) => (
+                                                                <li key={i} style={{ marginBottom: '0.25rem' }}>{s}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Re-mark button */}
+                                            <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+                                                <button
+                                                    onClick={() => requestAIMarking(selectedSubmission.id)}
+                                                    disabled={markingId === selectedSubmission.id}
+                                                    style={{
+                                                        padding: '0.4rem 0.75rem',
+                                                        background: 'transparent',
+                                                        border: `1px solid ${theme.border.medium}`,
+                                                        borderRadius: '4px',
+                                                        color: theme.text.tertiary,
+                                                        fontSize: '0.75rem',
+                                                        cursor: 'pointer',
+                                                    }}
+                                                >
+                                                    {markingId === selectedSubmission.id ? 'Re-analyzing...' : 'Re-mark'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ color: theme.text.tertiary, fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+                                            {markingId === selectedSubmission.id ? (
+                                                <div>
+                                                    <div style={{ marginBottom: '0.5rem' }}>Analyzing drawing with AI...</div>
+                                                    <div style={{ fontSize: '0.75rem' }}>This may take a few seconds</div>
+                                                </div>
+                                            ) : (
+                                                'Click "Get AI Feedback" to analyze this submission'
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
