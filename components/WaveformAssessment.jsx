@@ -24,6 +24,12 @@ const WaveformAssessment = () => {
     const [showCopyModal, setShowCopyModal] = useState(false);
     const [modalImageUrl, setModalImageUrl] = useState(null);
 
+    // AI Feedback state
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [currentFeedback, setCurrentFeedback] = useState(null);
+    const [feedbackError, setFeedbackError] = useState(null);
+
     const canvasWidth = 700;
     const canvasHeight = 350;
     const padding = { top: 50, right: 50, bottom: 60, left: 70 };
@@ -225,6 +231,109 @@ const WaveformAssessment = () => {
     ];
 
     const currentChallengeData = challenges[currentChallenge];
+
+    // Generate correct answer image for AI comparison
+    const generateCorrectAnswerImage = useCallback((challenge) => {
+        if (!challenge) return null;
+
+        const canvas = document.createElement('canvas');
+        const width = 700;
+        const height = 350;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const pad = { top: 50, right: 50, bottom: 60, left: 70 };
+        const graphWidth = width - pad.left - pad.right;
+        const graphHeight = height - pad.top - pad.bottom;
+
+        // Background
+        ctx.fillStyle = '#1a1814';
+        ctx.fillRect(0, 0, width, height);
+
+        // Graph background
+        ctx.fillStyle = '#252219';
+        ctx.fillRect(pad.left, pad.top, graphWidth, graphHeight);
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(245, 240, 230, 0.1)';
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i <= 10; i++) {
+            const x = pad.left + (graphWidth / 10) * i;
+            ctx.beginPath();
+            ctx.moveTo(x, pad.top);
+            ctx.lineTo(x, pad.top + graphHeight);
+            ctx.stroke();
+        }
+
+        for (let i = 0; i <= 4; i++) {
+            const y = pad.top + (graphHeight / 4) * i;
+            ctx.beginPath();
+            ctx.moveTo(pad.left, y);
+            ctx.lineTo(pad.left + graphWidth, y);
+            ctx.stroke();
+        }
+
+        // Center line
+        ctx.strokeStyle = 'rgba(245, 240, 230, 0.3)';
+        ctx.lineWidth = 2;
+        const centerY = pad.top + graphHeight / 2;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, centerY);
+        ctx.lineTo(pad.left + graphWidth, centerY);
+        ctx.stroke();
+
+        // Draw original waveform (dashed gray)
+        const originalShape = waveformShapes[challenge.originalShape];
+        if (originalShape) {
+            ctx.strokeStyle = 'rgba(150, 150, 150, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+
+            for (let i = 0; i <= graphWidth; i++) {
+                const progress = i / graphWidth;
+                const value = originalShape.draw(progress, challenge.originalCycles);
+                const x = pad.left + i;
+                const y = centerY - (value * graphHeight * 0.4);
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Draw correct answer (solid green)
+        const targetShape = waveformShapes[challenge.targetShape];
+        if (targetShape) {
+            ctx.strokeStyle = '#7cb342';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            for (let i = 0; i <= graphWidth; i++) {
+                const progress = i / graphWidth;
+                const value = targetShape.draw(progress, challenge.targetCycles);
+                const x = pad.left + i;
+                const y = centerY - (value * graphHeight * 0.4);
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        // Labels
+        ctx.fillStyle = '#f5f0e6';
+        ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(`Original: ${challenge.originalShape} (${challenge.originalCycles} cycles)`, pad.left, 25);
+
+        ctx.fillStyle = '#7cb342';
+        ctx.fillText(`Correct: ${challenge.targetShape} (${challenge.targetCycles} cycles)`, pad.left + 300, 25);
+
+        return canvas.toDataURL('image/png');
+    }, [waveformShapes]);
 
     // Draw the waveform grid and reference
     const drawGrid = useCallback((ctx) => {
@@ -485,10 +594,10 @@ const WaveformAssessment = () => {
         });
     };
 
-    // Save drawing to Supabase
+    // Save drawing to Supabase and return submission ID
     const saveToDatabase = async (imageData) => {
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('submissions')
                 .insert({
                     student_name: studentName,
@@ -498,13 +607,81 @@ const WaveformAssessment = () => {
                     direction: currentChallengeData.direction,
                     octaves: currentChallengeData.octaves,
                     drawing_image: imageData,
-                });
+                })
+                .select('id')
+                .single();
 
             if (error) {
                 console.error('Failed to save to database:', error);
+                return null;
             }
+            return data?.id || null;
         } catch (err) {
             console.error('Database save error:', err);
+            return null;
+        }
+    };
+
+    // Request AI marking for a submission
+    const requestAIMarking = async (submissionId, correctAnswerImage) => {
+        try {
+            const response = await fetch('/api/ai-mark', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ submissionId, correctAnswerImage }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'AI marking failed');
+            }
+
+            const result = await response.json();
+            return result.feedback;
+        } catch (err) {
+            console.error('AI marking error:', err);
+            throw err;
+        }
+    };
+
+    // Submit drawing with AI feedback
+    const submitDrawing = async () => {
+        const canvas = canvasRef.current;
+        if (!canvas || userPoints.length < 5) return;
+
+        setIsSubmitting(true);
+        setFeedbackError(null);
+
+        try {
+            // Get canvas image data
+            const imageData = canvas.toDataURL('image/png');
+
+            // Save to database
+            const submissionId = await saveToDatabase(imageData);
+            if (!submissionId) {
+                throw new Error('Failed to save submission');
+            }
+
+            // Generate correct answer image
+            const correctAnswerImage = generateCorrectAnswerImage(currentChallengeData);
+
+            // Request AI marking
+            const feedback = await requestAIMarking(submissionId, correctAnswerImage);
+
+            // Show feedback modal
+            setCurrentFeedback(feedback);
+            setShowFeedbackModal(true);
+
+            // Mark as completed
+            setCopiedChallenges(prev => new Set([...prev, currentChallenge]));
+            setCopyStatus('copied');
+
+        } catch (err) {
+            console.error('Submission error:', err);
+            setFeedbackError(err.message || 'Submission failed');
+            setShowFeedbackModal(true);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -1173,11 +1350,11 @@ const WaveformAssessment = () => {
                             Clear
                         </button>
                         <button
-                            onClick={copyToClipboard}
-                            disabled={userPoints.length < 5}
+                            onClick={submitDrawing}
+                            disabled={userPoints.length < 5 || isSubmitting}
                             style={{
                                 ...styles.button,
-                                ...(userPoints.length >= 5 ? (
+                                ...(userPoints.length >= 5 && !isSubmitting ? (
                                     copyStatus === 'copied' ? {
                                         background: `linear-gradient(135deg, ${theme.accent.green} 0%, #5a9e32 100%)`,
                                         color: '#fff',
@@ -1190,7 +1367,9 @@ const WaveformAssessment = () => {
                                 }),
                             }}
                         >
-                            {copyStatus === 'copied' ? (
+                            {isSubmitting ? (
+                                <>Marking...</>
+                            ) : copyStatus === 'copied' ? (
                                 <>✓ Submitted</>
                             ) : (
                                 <>Submit Drawing</>
@@ -1265,6 +1444,388 @@ const WaveformAssessment = () => {
                         <p style={{ color: theme.text.secondary, fontSize: '0.9rem' }}>
                             All 10 drawings submitted. Your teacher will review and mark your work.
                         </p>
+                    </div>
+                )}
+
+                {/* AI Feedback Modal */}
+                {showFeedbackModal && (
+                    <div
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            background: 'rgba(0, 0, 0, 0.85)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1000,
+                            padding: '1rem',
+                        }}
+                        onClick={() => setShowFeedbackModal(false)}
+                    >
+                        <div
+                            style={{
+                                background: theme.bg.panel,
+                                borderRadius: '16px',
+                                padding: '1.5rem',
+                                maxWidth: '600px',
+                                width: '100%',
+                                maxHeight: '90vh',
+                                overflowY: 'auto',
+                                border: `1px solid ${theme.border.medium}`,
+                                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {feedbackError ? (
+                                <>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                        marginBottom: '1rem',
+                                    }}>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '50%',
+                                            background: `${theme.accent.red}20`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '1.25rem',
+                                        }}>
+                                            ⚠
+                                        </div>
+                                        <div>
+                                            <h3 style={{
+                                                color: theme.accent.red,
+                                                fontSize: '1.1rem',
+                                                fontWeight: '600',
+                                                marginBottom: '0.25rem',
+                                            }}>
+                                                Submission Error
+                                            </h3>
+                                            <p style={{ color: theme.text.secondary, fontSize: '0.85rem' }}>
+                                                {feedbackError}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setShowFeedbackModal(false);
+                                            setFeedbackError(null);
+                                        }}
+                                        style={{
+                                            ...styles.button,
+                                            ...styles.buttonSecondary,
+                                            width: '100%',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        Close
+                                    </button>
+                                </>
+                            ) : currentFeedback ? (
+                                <>
+                                    {/* Header with mark */}
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-start',
+                                        marginBottom: '1.25rem',
+                                    }}>
+                                        <div>
+                                            <h3 style={{
+                                                color: theme.text.primary,
+                                                fontSize: '1.1rem',
+                                                fontWeight: '600',
+                                                marginBottom: '0.25rem',
+                                            }}>
+                                                Challenge {currentChallenge + 1} Feedback
+                                            </h3>
+                                            <p style={{ color: theme.text.secondary, fontSize: '0.8rem' }}>
+                                                AI-generated feedback • Your teacher will review
+                                            </p>
+                                        </div>
+                                        <div style={{
+                                            background: currentFeedback.suggestedMark >= 7
+                                                ? `${theme.accent.green}20`
+                                                : currentFeedback.suggestedMark >= 4
+                                                    ? `${theme.accent.amber}20`
+                                                    : `${theme.accent.red}20`,
+                                            border: `2px solid ${
+                                                currentFeedback.suggestedMark >= 7
+                                                    ? theme.accent.green
+                                                    : currentFeedback.suggestedMark >= 4
+                                                        ? theme.accent.amber
+                                                        : theme.accent.red
+                                            }`,
+                                            borderRadius: '12px',
+                                            padding: '0.75rem 1rem',
+                                            textAlign: 'center',
+                                            minWidth: '80px',
+                                        }}>
+                                            <div style={{
+                                                fontSize: '1.5rem',
+                                                fontWeight: '700',
+                                                color: currentFeedback.suggestedMark >= 7
+                                                    ? theme.accent.green
+                                                    : currentFeedback.suggestedMark >= 4
+                                                        ? theme.accent.amber
+                                                        : theme.accent.red,
+                                                fontFamily: '"SF Mono", monospace',
+                                            }}>
+                                                {currentFeedback.suggestedMark}/10
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Marking criteria */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gap: '0.75rem',
+                                        marginBottom: '1rem',
+                                    }}>
+                                        {/* Cycle count */}
+                                        <div style={{
+                                            background: theme.bg.deep,
+                                            borderRadius: '8px',
+                                            padding: '0.75rem 1rem',
+                                            border: `1px solid ${currentFeedback.cycleCount?.correct ? theme.accent.green : theme.accent.red}40`,
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                marginBottom: '0.35rem',
+                                            }}>
+                                                <span style={{
+                                                    color: theme.text.secondary,
+                                                    fontSize: '0.75rem',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                }}>
+                                                    Cycle Count
+                                                </span>
+                                                <span style={{
+                                                    color: currentFeedback.cycleCount?.correct ? theme.accent.green : theme.accent.red,
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '600',
+                                                    fontFamily: '"SF Mono", monospace',
+                                                }}>
+                                                    {currentFeedback.cycleCount?.marks}/4
+                                                </span>
+                                            </div>
+                                            <p style={{ color: theme.text.primary, fontSize: '0.85rem', margin: 0 }}>
+                                                {currentFeedback.cycleCount?.feedback}
+                                            </p>
+                                        </div>
+
+                                        {/* Shape accuracy */}
+                                        <div style={{
+                                            background: theme.bg.deep,
+                                            borderRadius: '8px',
+                                            padding: '0.75rem 1rem',
+                                            border: `1px solid ${currentFeedback.shapeAccuracy?.correct ? theme.accent.green : theme.accent.red}40`,
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                marginBottom: '0.35rem',
+                                            }}>
+                                                <span style={{
+                                                    color: theme.text.secondary,
+                                                    fontSize: '0.75rem',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                }}>
+                                                    Shape Accuracy
+                                                </span>
+                                                <span style={{
+                                                    color: currentFeedback.shapeAccuracy?.correct ? theme.accent.green : theme.accent.red,
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '600',
+                                                    fontFamily: '"SF Mono", monospace',
+                                                }}>
+                                                    {currentFeedback.shapeAccuracy?.marks}/4
+                                                </span>
+                                            </div>
+                                            <p style={{ color: theme.text.primary, fontSize: '0.85rem', margin: 0 }}>
+                                                {currentFeedback.shapeAccuracy?.feedback}
+                                            </p>
+                                        </div>
+
+                                        {/* Drawing quality */}
+                                        <div style={{
+                                            background: theme.bg.deep,
+                                            borderRadius: '8px',
+                                            padding: '0.75rem 1rem',
+                                            border: `1px solid ${theme.border.subtle}`,
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                marginBottom: '0.35rem',
+                                            }}>
+                                                <span style={{
+                                                    color: theme.text.secondary,
+                                                    fontSize: '0.75rem',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                }}>
+                                                    Drawing Quality
+                                                </span>
+                                                <span style={{
+                                                    color: theme.accent.amber,
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: '600',
+                                                    fontFamily: '"SF Mono", monospace',
+                                                }}>
+                                                    {currentFeedback.drawingQuality?.marks}/2
+                                                </span>
+                                            </div>
+                                            <p style={{ color: theme.text.primary, fontSize: '0.85rem', margin: 0 }}>
+                                                {currentFeedback.drawingQuality?.feedback}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Overall feedback */}
+                                    <div style={{
+                                        background: theme.bg.deep,
+                                        borderRadius: '8px',
+                                        padding: '1rem',
+                                        marginBottom: '1rem',
+                                        border: `1px solid ${theme.border.subtle}`,
+                                    }}>
+                                        <p style={{
+                                            color: theme.text.primary,
+                                            fontSize: '0.9rem',
+                                            lineHeight: '1.6',
+                                            margin: 0,
+                                        }}>
+                                            {currentFeedback.overallFeedback}
+                                        </p>
+                                    </div>
+
+                                    {/* Strengths and improvements */}
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 1fr',
+                                        gap: '0.75rem',
+                                        marginBottom: '1rem',
+                                    }}>
+                                        {currentFeedback.strengths?.length > 0 && (
+                                            <div style={{
+                                                background: `${theme.accent.green}10`,
+                                                borderRadius: '8px',
+                                                padding: '0.75rem',
+                                                border: `1px solid ${theme.accent.green}30`,
+                                            }}>
+                                                <div style={{
+                                                    color: theme.accent.green,
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: '600',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                    marginBottom: '0.5rem',
+                                                }}>
+                                                    Strengths
+                                                </div>
+                                                <ul style={{
+                                                    margin: 0,
+                                                    paddingLeft: '1rem',
+                                                    color: theme.text.secondary,
+                                                    fontSize: '0.8rem',
+                                                    lineHeight: '1.5',
+                                                }}>
+                                                    {currentFeedback.strengths.map((s, i) => (
+                                                        <li key={i}>{s}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {currentFeedback.improvements?.length > 0 && (
+                                            <div style={{
+                                                background: `${theme.accent.amber}10`,
+                                                borderRadius: '8px',
+                                                padding: '0.75rem',
+                                                border: `1px solid ${theme.accent.amber}30`,
+                                            }}>
+                                                <div style={{
+                                                    color: theme.accent.amber,
+                                                    fontSize: '0.7rem',
+                                                    fontWeight: '600',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                    marginBottom: '0.5rem',
+                                                }}>
+                                                    To Improve
+                                                </div>
+                                                <ul style={{
+                                                    margin: 0,
+                                                    paddingLeft: '1rem',
+                                                    color: theme.text.secondary,
+                                                    fontSize: '0.8rem',
+                                                    lineHeight: '1.5',
+                                                }}>
+                                                    {currentFeedback.improvements.map((s, i) => (
+                                                        <li key={i}>{s}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Teacher review notice */}
+                                    <div style={{
+                                        background: `${theme.accent.purple}15`,
+                                        borderRadius: '8px',
+                                        padding: '0.75rem 1rem',
+                                        marginBottom: '1rem',
+                                        border: `1px solid ${theme.accent.purple}40`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.75rem',
+                                    }}>
+                                        <span style={{ fontSize: '1.25rem' }}>👨‍🏫</span>
+                                        <p style={{
+                                            color: theme.text.secondary,
+                                            fontSize: '0.85rem',
+                                            margin: 0,
+                                        }}>
+                                            <strong style={{ color: theme.accent.purple }}>Your teacher will review this.</strong>{' '}
+                                            The final mark may be adjusted after teacher review.
+                                        </p>
+                                    </div>
+
+                                    {/* Close button */}
+                                    <button
+                                        onClick={() => {
+                                            setShowFeedbackModal(false);
+                                            setCurrentFeedback(null);
+                                            // Move to next challenge if not at the end
+                                            if (currentChallenge < challenges.length - 1) {
+                                                nextChallenge();
+                                            }
+                                        }}
+                                        style={{
+                                            ...styles.button,
+                                            ...styles.buttonPrimary,
+                                            width: '100%',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        {currentChallenge < challenges.length - 1 ? 'Continue to Next Challenge →' : 'Close'}
+                                    </button>
+                                </>
+                            ) : null}
+                        </div>
                     </div>
                 )}
 
