@@ -1,7 +1,35 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+
+// Waveform shape definitions (same as assessment component)
+const waveformShapes = {
+    sine: (progress, cycles) => Math.sin(progress * cycles * 2 * Math.PI),
+    square: (progress, cycles) => Math.sign(Math.sin(progress * cycles * 2 * Math.PI)),
+    saw: (progress, cycles) => {
+        const phase = (progress * cycles) % 1;
+        return 2 * phase - 1;
+    },
+    triangle: (progress, cycles) => {
+        const phase = (progress * cycles) % 1;
+        return 4 * Math.abs(phase - 0.5) - 1;
+    }
+};
+
+// Challenge data for calculating expected cycles
+const challengeData = {
+    1: { originalCycles: 4, targetCycles: 2 },
+    2: { originalCycles: 2, targetCycles: 4 },
+    3: { originalCycles: 4, targetCycles: 2 },
+    4: { originalCycles: 6, targetCycles: 3 },
+    5: { originalCycles: 3, targetCycles: 6 },
+    6: { originalCycles: 8, targetCycles: 2 },
+    7: { originalCycles: 4, targetCycles: 2 },
+    8: { originalCycles: 2, targetCycles: 8 },
+    9: { originalCycles: 4, targetCycles: 8 },
+    10: { originalCycles: 3, targetCycles: 6 }
+};
 
 export default function TeacherDashboard() {
     const [password, setPassword] = useState('');
@@ -12,9 +40,137 @@ export default function TeacherDashboard() {
     const [selectedSubmission, setSelectedSubmission] = useState(null);
     const [markingId, setMarkingId] = useState(null);
     const [markingError, setMarkingError] = useState(null);
+    const [correctAnswerImage, setCorrectAnswerImage] = useState(null);
+    const correctAnswerCanvasRef = useRef(null);
 
     // Simple password check (you can change this)
     const TEACHER_PASSWORD = 'teacher2024';
+
+    // Generate correct answer image when submission is selected
+    const generateCorrectAnswer = useCallback((submission) => {
+        if (!submission) return null;
+
+        const canvas = document.createElement('canvas');
+        const width = 700;
+        const height = 350;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const padding = { top: 50, right: 50, bottom: 60, left: 70 };
+        const graphWidth = width - padding.left - padding.right;
+        const graphHeight = height - padding.top - padding.bottom;
+
+        // Background
+        ctx.fillStyle = '#1a1814';
+        ctx.fillRect(0, 0, width, height);
+
+        // Graph background
+        ctx.fillStyle = '#252219';
+        ctx.fillRect(padding.left, padding.top, graphWidth, graphHeight);
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(245, 240, 230, 0.1)';
+        ctx.lineWidth = 1;
+
+        // Vertical grid
+        for (let i = 0; i <= 10; i++) {
+            const x = padding.left + (graphWidth / 10) * i;
+            ctx.beginPath();
+            ctx.moveTo(x, padding.top);
+            ctx.lineTo(x, padding.top + graphHeight);
+            ctx.stroke();
+        }
+
+        // Horizontal grid
+        for (let i = 0; i <= 4; i++) {
+            const y = padding.top + (graphHeight / 4) * i;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(padding.left + graphWidth, y);
+            ctx.stroke();
+        }
+
+        // Center line
+        ctx.strokeStyle = 'rgba(245, 240, 230, 0.3)';
+        ctx.lineWidth = 2;
+        const centerY = padding.top + graphHeight / 2;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, centerY);
+        ctx.lineTo(padding.left + graphWidth, centerY);
+        ctx.stroke();
+
+        // Get challenge info
+        const challenge = challengeData[submission.challenge_number] || {};
+        const originalCycles = challenge.originalCycles || 4;
+        const targetCycles = challenge.targetCycles || 4;
+        const targetShape = submission.target_shape || 'sine';
+        const originalShape = submission.original_shape || 'sine';
+
+        // Draw original waveform (dashed gray)
+        if (waveformShapes[originalShape]) {
+            ctx.strokeStyle = 'rgba(150, 150, 150, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 8]);
+            ctx.beginPath();
+
+            for (let i = 0; i <= graphWidth; i++) {
+                const progress = i / graphWidth;
+                const value = waveformShapes[originalShape](progress, originalCycles);
+                const x = padding.left + i;
+                const y = centerY - (value * graphHeight * 0.4);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Draw correct answer (solid green)
+        if (waveformShapes[targetShape]) {
+            ctx.strokeStyle = '#7cb342';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            for (let i = 0; i <= graphWidth; i++) {
+                const progress = i / graphWidth;
+                const value = waveformShapes[targetShape](progress, targetCycles);
+                const x = padding.left + i;
+                const y = centerY - (value * graphHeight * 0.4);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // Labels
+        ctx.fillStyle = '#f5f0e6';
+        ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(`Original: ${originalShape} (${originalCycles} cycles)`, padding.left, 25);
+
+        ctx.fillStyle = '#7cb342';
+        ctx.fillText(`Correct Answer: ${targetShape} (${targetCycles} cycles)`, padding.left + 300, 25);
+
+        return canvas.toDataURL('image/png');
+    }, []);
+
+    // Update correct answer when submission changes
+    useEffect(() => {
+        if (selectedSubmission) {
+            const image = generateCorrectAnswer(selectedSubmission);
+            setCorrectAnswerImage(image);
+        } else {
+            setCorrectAnswerImage(null);
+        }
+    }, [selectedSubmission, generateCorrectAnswer]);
 
     const handleLogin = (e) => {
         e.preventDefault();
@@ -49,10 +205,17 @@ export default function TeacherDashboard() {
         setMarkingError(null);
 
         try {
+            // Generate correct answer image for the submission being marked
+            const submission = submissions.find(s => s.id === submissionId) || selectedSubmission;
+            const correctImage = submission ? generateCorrectAnswer(submission) : null;
+
             const response = await fetch('/api/ai-mark', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ submissionId }),
+                body: JSON.stringify({
+                    submissionId,
+                    correctAnswerImage: correctImage
+                }),
             });
 
             const data = await response.json();
@@ -455,20 +618,83 @@ export default function TeacherDashboard() {
                                         ×
                                     </button>
                                 </div>
+                                {/* Side-by-side comparison */}
                                 <div style={{
-                                    background: theme.bg.deep,
-                                    borderRadius: '8px',
-                                    padding: '0.5rem',
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr',
+                                    gap: '1rem',
+                                    marginBottom: '1rem',
                                 }}>
-                                    <img
-                                        src={selectedSubmission.drawing_image}
-                                        alt="Full size drawing"
-                                        style={{
-                                            width: '100%',
-                                            height: 'auto',
-                                            borderRadius: '6px',
-                                        }}
-                                    />
+                                    {/* Student's Drawing */}
+                                    <div>
+                                        <div style={{
+                                            color: theme.accent.blue,
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            marginBottom: '0.5rem',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em',
+                                        }}>
+                                            Student's Drawing
+                                        </div>
+                                        <div style={{
+                                            background: theme.bg.deep,
+                                            borderRadius: '8px',
+                                            padding: '0.5rem',
+                                            border: `2px solid ${theme.accent.blue}30`,
+                                        }}>
+                                            <img
+                                                src={selectedSubmission.drawing_image}
+                                                alt="Student drawing"
+                                                style={{
+                                                    width: '100%',
+                                                    height: 'auto',
+                                                    borderRadius: '6px',
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Correct Answer */}
+                                    <div>
+                                        <div style={{
+                                            color: theme.accent.green,
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            marginBottom: '0.5rem',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em',
+                                        }}>
+                                            Correct Answer
+                                        </div>
+                                        <div style={{
+                                            background: theme.bg.deep,
+                                            borderRadius: '8px',
+                                            padding: '0.5rem',
+                                            border: `2px solid ${theme.accent.green}30`,
+                                        }}>
+                                            {correctAnswerImage ? (
+                                                <img
+                                                    src={correctAnswerImage}
+                                                    alt="Correct answer"
+                                                    style={{
+                                                        width: '100%',
+                                                        height: 'auto',
+                                                        borderRadius: '6px',
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div style={{
+                                                    color: theme.text.tertiary,
+                                                    textAlign: 'center',
+                                                    padding: '2rem',
+                                                    fontSize: '0.85rem',
+                                                }}>
+                                                    Generating correct answer...
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div style={{
                                     marginTop: '1rem',

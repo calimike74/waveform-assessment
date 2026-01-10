@@ -37,7 +37,7 @@ function calculateExpectedCycles(challengeNumber, originalCycles, octaves, direc
 
 export async function POST(request) {
     try {
-        const { submissionId } = await request.json();
+        const { submissionId, correctAnswerImage } = await request.json();
 
         if (!submissionId) {
             return Response.json({ error: 'Missing submissionId' }, { status: 400 });
@@ -89,8 +89,71 @@ export async function POST(request) {
             apiKey: process.env.ANTHROPIC_API_KEY,
         });
 
-        // Build the marking prompt
-        const markingPrompt = `You are marking a student's waveform drawing assessment for A-Level Music Technology.
+        // Prepare correct answer image if provided
+        let correctAnswerData = null;
+        let correctAnswerMediaType = 'image/png';
+        if (correctAnswerImage) {
+            if (correctAnswerImage.startsWith('data:')) {
+                const matches = correctAnswerImage.match(/^data:([^;]+);base64,(.+)$/);
+                if (matches) {
+                    correctAnswerMediaType = matches[1];
+                    correctAnswerData = matches[2];
+                }
+            } else {
+                correctAnswerData = correctAnswerImage;
+            }
+        }
+
+        // Build the marking prompt based on whether we have a correct answer image
+        const markingPrompt = correctAnswerData
+            ? `You are marking a student's waveform drawing assessment for A-Level Music Technology.
+
+You have TWO IMAGES to compare:
+1. FIRST IMAGE (Student's Drawing): Shows the original waveform (dashed gray) and the student's attempt (solid blue)
+2. SECOND IMAGE (Correct Answer): Shows the original waveform (dashed gray) and the CORRECT answer (solid green)
+
+TASK CONTEXT:
+- Original waveform: ${submission.original_shape} wave with ${originalCycles} cycles
+- Student was asked to draw: ${submission.target_shape} wave, ${submission.octaves} octave(s) ${submission.direction}
+- Expected: ${expectedCycles} cycles of a ${submission.target_shape} wave
+
+MARKING INSTRUCTIONS:
+Compare the student's BLUE line in Image 1 with the CORRECT GREEN line in Image 2. Mark based on how closely they match.
+
+MARKING CRITERIA (10 marks total):
+1. CYCLE COUNT (4 marks): Does the blue line have the same number of cycles as the green line? Count them.
+2. SHAPE ACCURACY (4 marks): Does the blue line match the shape of the green line?
+3. DRAWING QUALITY (2 marks): Is the drawing clear, consistent in amplitude, and well-executed?
+
+Provide your assessment as JSON in this exact format:
+{
+  "cycleCount": {
+    "detected": <number of cycles you count in the student's blue line>,
+    "expected": ${expectedCycles},
+    "correct": <true if detected equals expected, false otherwise>,
+    "marks": <0-4 based on accuracy>,
+    "feedback": "<specific feedback about cycle count>"
+  },
+  "shapeAccuracy": {
+    "detected": "<what shape you see in the blue line: sine/square/saw/triangle/unclear>",
+    "expected": "${submission.target_shape}",
+    "correct": <true if shape matches the green line, false otherwise>,
+    "marks": <0-4 based on how well it matches>,
+    "feedback": "<specific feedback about shape accuracy>"
+  },
+  "drawingQuality": {
+    "marks": <0-2>,
+    "feedback": "<feedback about clarity and consistency>"
+  },
+  "overallFeedback": "<2-3 sentences comparing the student's work to the correct answer>",
+  "strengths": ["<strength 1>", "<strength 2 if applicable>"],
+  "improvements": ["<improvement 1>", "<improvement 2 if applicable>"],
+  "suggestedMark": <total out of 10>,
+  "confidence": "<high/medium/low - how confident you are in this assessment>"
+}
+
+Return ONLY the JSON object, no other text.`
+            : `You are marking a student's waveform drawing assessment for A-Level Music Technology.
 
 IMAGE CONTEXT:
 - The dashed gray line shows the ORIGINAL waveform: a ${submission.original_shape} wave with ${originalCycles} cycles
@@ -135,6 +198,37 @@ Please analyze the image carefully and provide your assessment as JSON in this e
 
 Return ONLY the JSON object, no other text.`;
 
+        // Build message content with one or two images
+        const messageContent = [];
+
+        // Always include student drawing first
+        messageContent.push({
+            type: 'image',
+            source: {
+                type: 'base64',
+                media_type: mediaType,
+                data: imageData,
+            },
+        });
+
+        // Add correct answer image if provided
+        if (correctAnswerData) {
+            messageContent.push({
+                type: 'image',
+                source: {
+                    type: 'base64',
+                    media_type: correctAnswerMediaType,
+                    data: correctAnswerData,
+                },
+            });
+        }
+
+        // Add the prompt
+        messageContent.push({
+            type: 'text',
+            text: markingPrompt,
+        });
+
         // Call Claude vision API
         const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-20250514',
@@ -142,20 +236,7 @@ Return ONLY the JSON object, no other text.`;
             messages: [
                 {
                     role: 'user',
-                    content: [
-                        {
-                            type: 'image',
-                            source: {
-                                type: 'base64',
-                                media_type: mediaType,
-                                data: imageData,
-                            },
-                        },
-                        {
-                            type: 'text',
-                            text: markingPrompt,
-                        },
-                    ],
+                    content: messageContent,
                 },
             ],
         });
