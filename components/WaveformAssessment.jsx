@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 // ============================================
 // OCTAVE WAVEFORM DRAWING ASSESSMENT
 // Studio Console Aesthetic Edition
-// 10 Challenges - Copy to OneNote workflow
+// 10 Challenges - Submissions saved for marking
 // ============================================
 
 const WaveformAssessment = () => {
@@ -695,7 +695,7 @@ const WaveformAssessment = () => {
                     }}>
                         You'll see an original waveform. Draw what it would look like at a
                         <strong style={{ color: theme.text.primary }}> different octave</strong>.
-                        Copy each drawing to OneNote.
+                        Each drawing will be <strong style={{ color: theme.accent.amber }}>submitted for marking</strong>.
                     </p>
 
                     <div style={{ marginBottom: '1.5rem' }}>
@@ -754,8 +754,8 @@ const WaveformAssessment = () => {
                         }}>
                             <li>Look at the dashed <strong>original</strong> waveform</li>
                             <li>Draw the <strong>transposed</strong> waveform (solid line)</li>
-                            <li>Click <strong>"Copy"</strong> to copy to clipboard</li>
-                            <li>Paste into <strong>OneNote</strong> (Ctrl+V / Cmd+V)</li>
+                            <li>Click <strong>"Submit"</strong> to submit for marking</li>
+                            <li>Complete all <strong>10 challenges</strong></li>
                         </ol>
                     </div>
 
@@ -1191,9 +1191,9 @@ const WaveformAssessment = () => {
                             }}
                         >
                             {copyStatus === 'copied' ? (
-                                <>✓ Copied to Clipboard</>
+                                <>✓ Submitted</>
                             ) : (
-                                <>Copy to Clipboard</>
+                                <>Submit Drawing</>
                             )}
                         </button>
                     </div>
@@ -1263,7 +1263,7 @@ const WaveformAssessment = () => {
                             Assessment Complete!
                         </h3>
                         <p style={{ color: theme.text.secondary, fontSize: '0.9rem' }}>
-                            All 10 drawings copied. Make sure they're all pasted into OneNote.
+                            All 10 drawings submitted. Your teacher will review and mark your work.
                         </p>
                     </div>
                 )}
@@ -1310,13 +1310,13 @@ const WaveformAssessment = () => {
                                         fontWeight: '600',
                                         marginBottom: '0.25rem',
                                     }}>
-                                        Right-click the image below
+                                        Confirm your submission
                                     </h3>
                                     <p style={{
                                         color: theme.text.secondary,
                                         fontSize: '0.85rem',
                                     }}>
-                                        Select <strong style={{ color: theme.text.primary }}>"Copy image"</strong> then paste into OneNote
+                                        Click <strong style={{ color: theme.text.primary }}>"Done"</strong> to submit this drawing for marking
                                     </p>
                                 </div>
                                 <button
@@ -1355,65 +1355,18 @@ const WaveformAssessment = () => {
 
                             <div style={{
                                 display: 'flex',
-                                gap: '1.5rem',
+                                gap: '1rem',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 marginBottom: '1rem',
-                                flexWrap: 'wrap',
+                                padding: '0.75rem',
+                                background: theme.bg.deep,
+                                borderRadius: '8px',
+                                border: `1px solid ${theme.border.subtle}`,
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span style={{
-                                        background: theme.accent.amber,
-                                        color: theme.bg.deep,
-                                        width: '24px',
-                                        height: '24px',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '700',
-                                    }}>1</span>
-                                    <span style={{ color: theme.text.secondary, fontSize: '0.85rem' }}>
-                                        Right-click image
-                                    </span>
-                                </div>
-                                <span style={{ color: theme.text.tertiary }}>→</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span style={{
-                                        background: theme.accent.amber,
-                                        color: theme.bg.deep,
-                                        width: '24px',
-                                        height: '24px',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '700',
-                                    }}>2</span>
-                                    <span style={{ color: theme.text.secondary, fontSize: '0.85rem' }}>
-                                        Select "Copy image"
-                                    </span>
-                                </div>
-                                <span style={{ color: theme.text.tertiary }}>→</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span style={{
-                                        background: theme.accent.amber,
-                                        color: theme.bg.deep,
-                                        width: '24px',
-                                        height: '24px',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '700',
-                                    }}>3</span>
-                                    <span style={{ color: theme.text.secondary, fontSize: '0.85rem' }}>
-                                        Paste in OneNote
-                                    </span>
-                                </div>
+                                <span style={{ color: theme.text.secondary, fontSize: '0.85rem' }}>
+                                    Review your drawing above, then click <strong style={{ color: theme.accent.amber }}>"Done"</strong> to submit
+                                </span>
                             </div>
 
                             <div style={{
@@ -1429,7 +1382,7 @@ const WaveformAssessment = () => {
                                         padding: '0.875rem 1.5rem',
                                     }}
                                 >
-                                    ✓ Done - I've copied it
+                                    ✓ Submit Drawing
                                 </button>
                                 <button
                                     onClick={handleModalClose}
