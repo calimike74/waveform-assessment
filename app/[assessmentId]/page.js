@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { getAssessment, assessmentExists } from '@/lib/assessments';
 import { theme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
 import WaveformAssessment from '@/components/WaveformAssessment';
+import EQFilterAssessment from '@/components/EQFilterAssessment';
 import QuizAssessment from '@/components/engines/QuizAssessment';
 import ListeningAssessment from '@/components/engines/ListeningAssessment';
 
@@ -118,10 +119,11 @@ export default function AssessmentPage() {
     // Route to the appropriate assessment component based on type
     switch (assessment.type) {
         case 'drawing':
-            // For now, only waveform-octaves is implemented
-            // Later, we'll make DrawingAssessment generic
             if (assessmentId === 'waveform-octaves') {
                 return <WaveformAssessment initialName={studentName} />;
+            }
+            if (assessmentId === 'eq-filter-drawing') {
+                return <EQFilterAssessment initialName={studentName} />;
             }
             // Future: return <DrawingAssessment assessment={assessment} studentName={studentName} />;
             break;
