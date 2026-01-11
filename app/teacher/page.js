@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getAllAssessments } from '@/lib/assessments';
+import { theme as designTheme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
+
+// Use light theme
+const t = designTheme.light;
 
 // Waveform shape definitions (same as assessment component)
 const waveformShapes = {
@@ -30,6 +34,15 @@ const challengeData = {
     8: { originalCycles: 2, targetCycles: 8 },
     9: { originalCycles: 4, targetCycles: 8 },
     10: { originalCycles: 3, targetCycles: 6 }
+};
+
+// Canvas preview theme (darker for waveform visibility)
+const canvasPreviewTheme = {
+    bg: '#1a1a2e',
+    grid: 'rgba(255, 255, 255, 0.1)',
+    centerLine: 'rgba(255, 255, 255, 0.3)',
+    original: 'rgba(150, 150, 150, 0.5)',
+    correct: '#10B981',
 };
 
 export default function TeacherDashboard() {
@@ -68,15 +81,15 @@ export default function TeacherDashboard() {
         const graphHeight = height - padding.top - padding.bottom;
 
         // Background
-        ctx.fillStyle = '#1a1814';
+        ctx.fillStyle = canvasPreviewTheme.bg;
         ctx.fillRect(0, 0, width, height);
 
         // Graph background
-        ctx.fillStyle = '#252219';
+        ctx.fillStyle = '#16213e';
         ctx.fillRect(padding.left, padding.top, graphWidth, graphHeight);
 
         // Grid lines
-        ctx.strokeStyle = 'rgba(245, 240, 230, 0.1)';
+        ctx.strokeStyle = canvasPreviewTheme.grid;
         ctx.lineWidth = 1;
 
         // Vertical grid
@@ -98,7 +111,7 @@ export default function TeacherDashboard() {
         }
 
         // Center line
-        ctx.strokeStyle = 'rgba(245, 240, 230, 0.3)';
+        ctx.strokeStyle = canvasPreviewTheme.centerLine;
         ctx.lineWidth = 2;
         const centerY = padding.top + graphHeight / 2;
         ctx.beginPath();
@@ -115,7 +128,7 @@ export default function TeacherDashboard() {
 
         // Draw original waveform (dashed gray)
         if (waveformShapes[originalShape]) {
-            ctx.strokeStyle = 'rgba(150, 150, 150, 0.5)';
+            ctx.strokeStyle = canvasPreviewTheme.original;
             ctx.lineWidth = 2;
             ctx.setLineDash([8, 8]);
             ctx.beginPath();
@@ -138,7 +151,7 @@ export default function TeacherDashboard() {
 
         // Draw correct answer (solid green)
         if (waveformShapes[targetShape]) {
-            ctx.strokeStyle = '#7cb342';
+            ctx.strokeStyle = canvasPreviewTheme.correct;
             ctx.lineWidth = 3;
             ctx.beginPath();
 
@@ -158,11 +171,11 @@ export default function TeacherDashboard() {
         }
 
         // Labels
-        ctx.fillStyle = '#f5f0e6';
+        ctx.fillStyle = '#f0f0f0';
         ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.fillText(`Original: ${originalShape} (${originalCycles} cycles)`, padding.left, 25);
 
-        ctx.fillStyle = '#7cb342';
+        ctx.fillStyle = canvasPreviewTheme.correct;
         ctx.fillText(`Correct Answer: ${targetShape} (${targetCycles} cycles)`, padding.left + 300, 25);
 
         return canvas.toDataURL('image/png');
@@ -406,126 +419,225 @@ export default function TeacherDashboard() {
         return acc;
     }, {});
 
-    // Theme matching the assessment
-    const theme = {
-        bg: { deep: '#1a1814', panel: '#252219', surface: '#2d2a23' },
-        accent: { amber: '#e8a849', green: '#7cb342', blue: '#5c9ce6', red: '#e57373' },
-        text: { primary: '#f5f0e6', secondary: '#a8a090', tertiary: '#6b6560' },
-        border: { subtle: 'rgba(245, 240, 230, 0.08)', medium: 'rgba(245, 240, 230, 0.15)' }
+    // Common button styles
+    const buttonBase = {
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: typography.fontFamily,
+        fontWeight: typography.weight.medium,
+        fontSize: typography.size.base,
+        borderRadius: borderRadius.lg,
+        cursor: 'pointer',
+        transition: `all ${transitions.fast} ${transitions.easing}`,
+        border: 'none',
+        outline: 'none',
+    };
+
+    // Common input styles
+    const inputBase = {
+        fontFamily: typography.fontFamily,
+        fontSize: typography.size.base,
+        padding: `${spacing[2]} ${spacing[3]}`,
+        borderRadius: borderRadius.lg,
+        border: `1px solid ${t.border.input}`,
+        backgroundColor: t.bg.primary,
+        color: t.text.primary,
+        outline: 'none',
+        transition: `border-color ${transitions.fast} ${transitions.easing}, box-shadow ${transitions.fast} ${transitions.easing}`,
     };
 
     // Login screen
     if (!isAuthenticated) {
         return (
-            <div style={{
-                minHeight: '100vh',
-                background: `linear-gradient(180deg, ${theme.bg.deep} 0%, #12110e 100%)`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            }}>
-                <div style={{
-                    background: theme.bg.panel,
-                    padding: '2.5rem',
-                    borderRadius: '16px',
-                    border: `1px solid ${theme.border.medium}`,
-                    maxWidth: '400px',
-                    width: '100%',
-                }}>
-                    <h1 style={{
-                        color: theme.text.primary,
-                        fontSize: '1.5rem',
-                        marginBottom: '0.5rem',
-                    }}>
+            <div
+                style={{
+                    minHeight: '100vh',
+                    background: t.bg.secondary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: typography.fontFamily,
+                    padding: spacing[8],
+                }}
+            >
+                <main
+                    style={{
+                        background: t.bg.primary,
+                        padding: spacing[10],
+                        borderRadius: borderRadius['2xl'],
+                        border: `1px solid ${t.border.subtle}`,
+                        boxShadow: t.shadow.lg,
+                        maxWidth: '400px',
+                        width: '100%',
+                    }}
+                    role="main"
+                    aria-labelledby="login-title"
+                >
+                    <h1
+                        id="login-title"
+                        style={{
+                            color: t.text.primary,
+                            fontSize: typography.size['2xl'],
+                            fontWeight: typography.weight.bold,
+                            marginBottom: spacing[2],
+                            lineHeight: typography.lineHeight.tight,
+                        }}
+                    >
                         Teacher Dashboard
                     </h1>
-                    <p style={{
-                        color: theme.text.secondary,
-                        fontSize: '0.9rem',
-                        marginBottom: '1.5rem',
-                    }}>
+                    <p
+                        style={{
+                            color: t.text.secondary,
+                            fontSize: typography.size.base,
+                            marginBottom: spacing[6],
+                            lineHeight: typography.lineHeight.relaxed,
+                        }}
+                    >
                         Enter password to view student submissions
                     </p>
                     <form onSubmit={handleLogin}>
+                        <label
+                            htmlFor="teacher-password"
+                            style={{
+                                display: 'block',
+                                color: t.text.secondary,
+                                fontSize: typography.size.sm,
+                                fontWeight: typography.weight.medium,
+                                marginBottom: spacing[1],
+                            }}
+                        >
+                            Access Code
+                        </label>
                         <input
+                            id="teacher-password"
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Password"
+                            placeholder="Enter access code"
                             style={{
+                                ...inputBase,
                                 width: '100%',
-                                padding: '0.875rem',
-                                background: theme.bg.deep,
-                                border: `1px solid ${theme.border.medium}`,
-                                borderRadius: '8px',
-                                color: theme.text.primary,
-                                fontSize: '1rem',
-                                marginBottom: '1rem',
-                                outline: 'none',
+                                marginBottom: spacing[4],
                             }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = t.border.focus;
+                                e.target.style.boxShadow = `0 0 0 3px rgba(37, 99, 235, 0.1)`;
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = t.border.input;
+                                e.target.style.boxShadow = 'none';
+                            }}
+                            aria-required="true"
                         />
                         <button
                             type="submit"
                             style={{
+                                ...buttonBase,
                                 width: '100%',
-                                padding: '0.875rem',
-                                background: `linear-gradient(135deg, ${theme.accent.amber} 0%, #d4922e 100%)`,
-                                border: 'none',
-                                borderRadius: '8px',
-                                color: theme.bg.deep,
-                                fontSize: '1rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
+                                padding: `${spacing[3]} ${spacing[4]}`,
+                                background: t.accent.primary,
+                                color: t.text.inverse,
+                                fontWeight: typography.weight.semibold,
+                                boxShadow: t.shadow.md,
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = t.accent.primaryHover;
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = t.accent.primary;
+                                e.currentTarget.style.transform = 'none';
+                            }}
+                            onFocus={(e) => {
+                                e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                e.currentTarget.style.outlineOffset = '2px';
+                            }}
+                            onBlur={(e) => {
+                                e.currentTarget.style.outline = 'none';
                             }}
                         >
                             Access Dashboard
                         </button>
                     </form>
-                </div>
+                </main>
             </div>
         );
     }
 
     // Main dashboard
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: `linear-gradient(180deg, ${theme.bg.deep} 0%, #12110e 100%)`,
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            padding: '2rem',
-        }}>
+        <div
+            style={{
+                minHeight: '100vh',
+                background: t.bg.secondary,
+                fontFamily: typography.fontFamily,
+                padding: spacing[8],
+            }}
+        >
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
                 {/* Header */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '2rem',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                }}>
+                <header
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: spacing[6],
+                        flexWrap: 'wrap',
+                        gap: spacing[4],
+                    }}
+                >
                     <div>
-                        <h1 style={{ color: theme.text.primary, fontSize: '1.75rem', marginBottom: '0.25rem' }}>
+                        <h1
+                            style={{
+                                color: t.text.primary,
+                                fontSize: typography.size['3xl'],
+                                fontWeight: typography.weight.bold,
+                                marginBottom: spacing[1],
+                                lineHeight: typography.lineHeight.tight,
+                            }}
+                        >
                             Teacher Dashboard
                         </h1>
-                        <p style={{ color: theme.text.secondary, fontSize: '0.9rem' }}>
+                        <p
+                            style={{
+                                color: t.text.secondary,
+                                fontSize: typography.size.base,
+                            }}
+                        >
                             {submissions.length} total submissions from {studentNames.length} students
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <nav
+                        style={{ display: 'flex', gap: spacing[3], flexWrap: 'wrap' }}
+                        aria-label="Dashboard actions"
+                    >
                         <button
                             onClick={exportToCSV}
                             disabled={loading || submissions.length === 0}
+                            aria-label="Export submissions to CSV"
                             style={{
-                                padding: '0.625rem 1.25rem',
-                                background: theme.accent.green,
-                                border: 'none',
-                                borderRadius: '8px',
-                                color: '#fff',
-                                cursor: submissions.length === 0 ? 'not-allowed' : 'pointer',
-                                fontWeight: '500',
+                                ...buttonBase,
+                                padding: `${spacing[2]} ${spacing[4]}`,
+                                background: t.accent.success,
+                                color: t.text.inverse,
                                 opacity: submissions.length === 0 ? 0.5 : 1,
+                                cursor: submissions.length === 0 ? 'not-allowed' : 'pointer',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (submissions.length > 0) {
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'none';
+                            }}
+                            onFocus={(e) => {
+                                e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                e.currentTarget.style.outlineOffset = '2px';
+                            }}
+                            onBlur={(e) => {
+                                e.currentTarget.style.outline = 'none';
                             }}
                         >
                             Export CSV
@@ -533,17 +645,31 @@ export default function TeacherDashboard() {
                         <button
                             onClick={batchMarkAll}
                             disabled={loading || batchMarking || filteredSubmissions.length === 0}
+                            aria-label={batchMarking ? `Marking ${batchProgress.current} of ${batchProgress.total}` : `Mark all ${filteredSubmissions.filter(s => !s.ai_feedback).length} unmarked submissions`}
                             style={{
-                                padding: '0.625rem 1.25rem',
-                                background: batchMarking
-                                    ? theme.bg.deep
-                                    : `linear-gradient(135deg, ${theme.accent.blue} 0%, #4a8cd4 100%)`,
-                                border: 'none',
-                                borderRadius: '8px',
-                                color: '#fff',
+                                ...buttonBase,
+                                padding: `${spacing[2]} ${spacing[4]}`,
+                                background: batchMarking ? t.bg.tertiary : t.accent.primary,
+                                color: batchMarking ? t.text.secondary : t.text.inverse,
                                 cursor: batchMarking ? 'wait' : 'pointer',
-                                fontWeight: '500',
-                                minWidth: '160px',
+                                minWidth: '180px',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!batchMarking) {
+                                    e.currentTarget.style.background = t.accent.primaryHover;
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = batchMarking ? t.bg.tertiary : t.accent.primary;
+                                e.currentTarget.style.transform = 'none';
+                            }}
+                            onFocus={(e) => {
+                                e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                e.currentTarget.style.outlineOffset = '2px';
+                            }}
+                            onBlur={(e) => {
+                                e.currentTarget.style.outline = 'none';
                             }}
                         >
                             {batchMarking
@@ -553,209 +679,360 @@ export default function TeacherDashboard() {
                         <button
                             onClick={fetchSubmissions}
                             disabled={loading}
+                            aria-label="Refresh submissions"
                             style={{
-                                padding: '0.625rem 1.25rem',
-                                background: theme.bg.surface,
-                                border: `1px solid ${theme.border.medium}`,
-                                borderRadius: '8px',
-                                color: theme.text.secondary,
-                                cursor: 'pointer',
+                                ...buttonBase,
+                                padding: `${spacing[2]} ${spacing[4]}`,
+                                background: t.bg.primary,
+                                border: `1px solid ${t.border.medium}`,
+                                color: t.text.secondary,
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = t.border.strong;
+                                e.currentTarget.style.color = t.text.primary;
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = t.border.medium;
+                                e.currentTarget.style.color = t.text.secondary;
+                            }}
+                            onFocus={(e) => {
+                                e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                e.currentTarget.style.outlineOffset = '2px';
+                            }}
+                            onBlur={(e) => {
+                                e.currentTarget.style.outline = 'none';
                             }}
                         >
                             {loading ? 'Loading...' : 'Refresh'}
                         </button>
-                    </div>
-                </div>
+                    </nav>
+                </header>
 
                 {/* Filters */}
-                <div style={{
-                    display: 'flex',
-                    gap: '1rem',
-                    marginBottom: '1.5rem',
-                    flexWrap: 'wrap',
-                }}>
-                    <select
-                        value={filter.student}
-                        onChange={(e) => setFilter(f => ({ ...f, student: e.target.value }))}
-                        style={{
-                            padding: '0.625rem 1rem',
-                            background: theme.bg.surface,
-                            border: `1px solid ${theme.border.medium}`,
-                            borderRadius: '8px',
-                            color: theme.text.primary,
-                            fontSize: '0.875rem',
-                        }}
-                    >
-                        <option value="">All Students</option>
-                        {studentNames.map(name => (
-                            <option key={name} value={name}>{name}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={filter.assessment}
-                        onChange={(e) => setFilter(f => ({ ...f, assessment: e.target.value }))}
-                        style={{
-                            padding: '0.625rem 1rem',
-                            background: theme.bg.surface,
-                            border: `1px solid ${theme.border.medium}`,
-                            borderRadius: '8px',
-                            color: theme.text.primary,
-                            fontSize: '0.875rem',
-                        }}
-                    >
-                        <option value="">All Assessments</option>
-                        {availableAssessments.map(a => (
-                            <option key={a.id} value={a.id}>{a.title}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={filter.challenge}
-                        onChange={(e) => setFilter(f => ({ ...f, challenge: e.target.value }))}
-                        style={{
-                            padding: '0.625rem 1rem',
-                            background: theme.bg.surface,
-                            border: `1px solid ${theme.border.medium}`,
-                            borderRadius: '8px',
-                            color: theme.text.primary,
-                            fontSize: '0.875rem',
-                        }}
-                    >
-                        <option value="">All Challenges</option>
-                        {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                            <option key={n} value={n}>Challenge {n}</option>
-                        ))}
-                    </select>
-                    {(filter.student || filter.challenge || filter.assessment) && (
-                        <button
-                            onClick={() => setFilter({ student: '', challenge: '', assessment: '' })}
+                <section
+                    aria-label="Submission filters"
+                    style={{
+                        display: 'flex',
+                        gap: spacing[4],
+                        marginBottom: spacing[6],
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                    }}
+                >
+                    <div>
+                        <label
+                            htmlFor="filter-student"
                             style={{
-                                padding: '0.625rem 1rem',
-                                background: 'transparent',
-                                border: `1px solid ${theme.accent.red}50`,
-                                borderRadius: '8px',
-                                color: theme.accent.red,
-                                cursor: 'pointer',
-                                fontSize: '0.875rem',
+                                display: 'block',
+                                color: t.text.tertiary,
+                                fontSize: typography.size.xs,
+                                fontWeight: typography.weight.medium,
+                                marginBottom: spacing[1],
+                                textTransform: 'uppercase',
+                                letterSpacing: typography.letterSpacing.wide,
                             }}
                         >
-                            Clear Filters
-                        </button>
-                    )}
-                </div>
-
-                {/* Submissions Grid */}
-                {loading ? (
-                    <div style={{ color: theme.text.secondary, textAlign: 'center', padding: '3rem' }}>
-                        Loading submissions...
+                            Student
+                        </label>
+                        <select
+                            id="filter-student"
+                            value={filter.student}
+                            onChange={(e) => setFilter(f => ({ ...f, student: e.target.value }))}
+                            style={{
+                                ...inputBase,
+                                minWidth: '160px',
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = t.border.focus;
+                                e.target.style.boxShadow = `0 0 0 3px rgba(37, 99, 235, 0.1)`;
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = t.border.input;
+                                e.target.style.boxShadow = 'none';
+                            }}
+                        >
+                            <option value="">All Students</option>
+                            {studentNames.map(name => (
+                                <option key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
                     </div>
-                ) : filteredSubmissions.length === 0 ? (
-                    <div style={{ color: theme.text.secondary, textAlign: 'center', padding: '3rem' }}>
-                        No submissions found
+                    <div>
+                        <label
+                            htmlFor="filter-assessment"
+                            style={{
+                                display: 'block',
+                                color: t.text.tertiary,
+                                fontSize: typography.size.xs,
+                                fontWeight: typography.weight.medium,
+                                marginBottom: spacing[1],
+                                textTransform: 'uppercase',
+                                letterSpacing: typography.letterSpacing.wide,
+                            }}
+                        >
+                            Assessment
+                        </label>
+                        <select
+                            id="filter-assessment"
+                            value={filter.assessment}
+                            onChange={(e) => setFilter(f => ({ ...f, assessment: e.target.value }))}
+                            style={{
+                                ...inputBase,
+                                minWidth: '200px',
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = t.border.focus;
+                                e.target.style.boxShadow = `0 0 0 3px rgba(37, 99, 235, 0.1)`;
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = t.border.input;
+                                e.target.style.boxShadow = 'none';
+                            }}
+                        >
+                            <option value="">All Assessments</option>
+                            {availableAssessments.map(a => (
+                                <option key={a.id} value={a.id}>{a.title}</option>
+                            ))}
+                        </select>
                     </div>
-                ) : (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                        gap: '1rem',
-                    }}>
-                        {filteredSubmissions.map((sub) => (
-                            <div
-                                key={sub.id}
-                                onClick={() => setSelectedSubmission(sub)}
+                    <div>
+                        <label
+                            htmlFor="filter-challenge"
+                            style={{
+                                display: 'block',
+                                color: t.text.tertiary,
+                                fontSize: typography.size.xs,
+                                fontWeight: typography.weight.medium,
+                                marginBottom: spacing[1],
+                                textTransform: 'uppercase',
+                                letterSpacing: typography.letterSpacing.wide,
+                            }}
+                        >
+                            Challenge
+                        </label>
+                        <select
+                            id="filter-challenge"
+                            value={filter.challenge}
+                            onChange={(e) => setFilter(f => ({ ...f, challenge: e.target.value }))}
+                            style={{
+                                ...inputBase,
+                                minWidth: '140px',
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = t.border.focus;
+                                e.target.style.boxShadow = `0 0 0 3px rgba(37, 99, 235, 0.1)`;
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = t.border.input;
+                                e.target.style.boxShadow = 'none';
+                            }}
+                        >
+                            <option value="">All Challenges</option>
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                                <option key={n} value={n}>Challenge {n}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {(filter.student || filter.challenge || filter.assessment) && (
+                        <div style={{ alignSelf: 'flex-end' }}>
+                            <button
+                                onClick={() => setFilter({ student: '', challenge: '', assessment: '' })}
+                                aria-label="Clear all filters"
                                 style={{
-                                    background: theme.bg.panel,
-                                    borderRadius: '12px',
-                                    border: `1px solid ${theme.border.medium}`,
-                                    overflow: 'hidden',
-                                    cursor: 'pointer',
-                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    ...buttonBase,
+                                    padding: `${spacing[2]} ${spacing[3]}`,
+                                    background: 'transparent',
+                                    border: `1px solid ${t.accent.error}40`,
+                                    color: t.accent.error,
+                                    fontSize: typography.size.sm,
                                 }}
                                 onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
+                                    e.currentTarget.style.background = t.accent.errorLight;
                                 }}
                                 onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'none';
-                                    e.currentTarget.style.boxShadow = 'none';
+                                    e.currentTarget.style.background = 'transparent';
+                                }}
+                                onFocus={(e) => {
+                                    e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                    e.currentTarget.style.outlineOffset = '2px';
+                                }}
+                                onBlur={(e) => {
+                                    e.currentTarget.style.outline = 'none';
                                 }}
                             >
-                                {/* Drawing preview */}
-                                <div style={{
-                                    background: theme.bg.deep,
-                                    padding: '0.5rem',
-                                }}>
-                                    <img
-                                        src={sub.drawing_image}
-                                        alt={`${sub.student_name} - Challenge ${sub.challenge_number}`}
+                                Clear Filters
+                            </button>
+                        </div>
+                    )}
+                </section>
+
+                {/* Submissions Grid */}
+                <main role="main" aria-label="Student submissions">
+                    {loading ? (
+                        <div
+                            style={{
+                                color: t.text.secondary,
+                                textAlign: 'center',
+                                padding: spacing[12],
+                                fontSize: typography.size.lg,
+                            }}
+                            role="status"
+                            aria-live="polite"
+                        >
+                            Loading submissions...
+                        </div>
+                    ) : filteredSubmissions.length === 0 ? (
+                        <div
+                            style={{
+                                color: t.text.secondary,
+                                textAlign: 'center',
+                                padding: spacing[12],
+                                fontSize: typography.size.lg,
+                            }}
+                        >
+                            No submissions found
+                        </div>
+                    ) : (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                                gap: spacing[4],
+                            }}
+                        >
+                            {filteredSubmissions.map((sub) => (
+                                <article
+                                    key={sub.id}
+                                    onClick={() => setSelectedSubmission(sub)}
+                                    tabIndex={0}
+                                    role="button"
+                                    aria-label={`View submission from ${sub.student_name}, Challenge ${sub.challenge_number}`}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            setSelectedSubmission(sub);
+                                        }
+                                    }}
+                                    style={{
+                                        background: t.bg.primary,
+                                        borderRadius: borderRadius.xl,
+                                        border: `1px solid ${t.border.subtle}`,
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                        transition: `all ${transitions.normal} ${transitions.easing}`,
+                                        boxShadow: t.shadow.sm,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'translateY(-2px)';
+                                        e.currentTarget.style.boxShadow = t.shadow.lg;
+                                        e.currentTarget.style.borderColor = t.border.medium;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'none';
+                                        e.currentTarget.style.boxShadow = t.shadow.sm;
+                                        e.currentTarget.style.borderColor = t.border.subtle;
+                                    }}
+                                    onFocus={(e) => {
+                                        e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                        e.currentTarget.style.outlineOffset = '2px';
+                                    }}
+                                    onBlur={(e) => {
+                                        e.currentTarget.style.outline = 'none';
+                                    }}
+                                >
+                                    {/* Drawing preview - dark background for visibility */}
+                                    <div
                                         style={{
-                                            width: '100%',
-                                            height: 'auto',
-                                            borderRadius: '6px',
+                                            background: canvasPreviewTheme.bg,
+                                            padding: spacing[2],
                                         }}
-                                    />
-                                </div>
-                                {/* Info */}
-                                <div style={{ padding: '1rem' }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'flex-start',
-                                        marginBottom: '0.5rem',
-                                    }}>
-                                        <span style={{
-                                            color: theme.text.primary,
-                                            fontWeight: '600',
-                                            fontSize: '0.95rem',
-                                        }}>
-                                            {sub.student_name}
-                                        </span>
-                                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                            {sub.ai_mark !== undefined && sub.ai_mark !== null && (
-                                                <span style={{
-                                                    background: sub.ai_mark >= 8
-                                                        ? theme.accent.green
-                                                        : sub.ai_mark >= 5
-                                                        ? theme.accent.amber
-                                                        : theme.accent.red,
-                                                    color: '#fff',
-                                                    padding: '0.2rem 0.4rem',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.7rem',
-                                                    fontWeight: '700',
-                                                }}>
-                                                    {sub.ai_mark}/10
-                                                </span>
-                                            )}
-                                            <span style={{
-                                                background: theme.accent.amber + '20',
-                                                color: theme.accent.amber,
-                                                padding: '0.2rem 0.5rem',
-                                                borderRadius: '4px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: '600',
-                                            }}>
-                                                #{sub.challenge_number}
+                                    >
+                                        <img
+                                            src={sub.drawing_image}
+                                            alt={`Waveform drawing by ${sub.student_name} for Challenge ${sub.challenge_number}`}
+                                            style={{
+                                                width: '100%',
+                                                height: 'auto',
+                                                borderRadius: borderRadius.md,
+                                                display: 'block',
+                                            }}
+                                        />
+                                    </div>
+                                    {/* Info */}
+                                    <div style={{ padding: spacing[4] }}>
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'flex-start',
+                                                marginBottom: spacing[2],
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    color: t.text.primary,
+                                                    fontWeight: typography.weight.semibold,
+                                                    fontSize: typography.size.base,
+                                                }}
+                                            >
+                                                {sub.student_name}
                                             </span>
+                                            <div style={{ display: 'flex', gap: spacing[2], alignItems: 'center' }}>
+                                                {sub.ai_mark !== undefined && sub.ai_mark !== null && (
+                                                    <span
+                                                        style={{
+                                                            background: sub.ai_mark >= 8
+                                                                ? t.accent.success
+                                                                : sub.ai_mark >= 5
+                                                                    ? t.accent.warning
+                                                                    : t.accent.error,
+                                                            color: t.text.inverse,
+                                                            padding: `${spacing[0.5]} ${spacing[2]}`,
+                                                            borderRadius: borderRadius.sm,
+                                                            fontSize: typography.size.xs,
+                                                            fontWeight: typography.weight.bold,
+                                                        }}
+                                                    >
+                                                        {sub.ai_mark}/10
+                                                    </span>
+                                                )}
+                                                <span
+                                                    style={{
+                                                        background: t.accent.infoLight,
+                                                        color: t.accent.info,
+                                                        padding: `${spacing[0.5]} ${spacing[2]}`,
+                                                        borderRadius: borderRadius.sm,
+                                                        fontSize: typography.size.xs,
+                                                        fontWeight: typography.weight.semibold,
+                                                    }}
+                                                >
+                                                    #{sub.challenge_number}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            style={{
+                                                color: t.text.tertiary,
+                                                fontSize: typography.size.sm,
+                                                marginBottom: spacing[2],
+                                            }}
+                                        >
+                                            {sub.original_shape} → {sub.target_shape} ({sub.octaves} octave {sub.direction})
+                                        </div>
+                                        <div
+                                            style={{
+                                                color: t.text.tertiary,
+                                                fontSize: typography.size.xs,
+                                            }}
+                                        >
+                                            {new Date(sub.created_at).toLocaleString()}
                                         </div>
                                     </div>
-                                    <div style={{
-                                        color: theme.text.tertiary,
-                                        fontSize: '0.8rem',
-                                        marginBottom: '0.5rem',
-                                    }}>
-                                        {sub.original_shape} → {sub.target_shape} ({sub.octaves} octave {sub.direction})
-                                    </div>
-                                    <div style={{
-                                        color: theme.text.tertiary,
-                                        fontSize: '0.75rem',
-                                    }}>
-                                        {new Date(sub.created_at).toLocaleString()}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                                </article>
+                            ))}
+                        </div>
+                    )}
+                </main>
 
                 {/* Modal for full-size view */}
                 {selectedSubmission && (
@@ -766,86 +1043,124 @@ export default function TeacherDashboard() {
                             left: 0,
                             right: 0,
                             bottom: 0,
-                            background: 'rgba(0,0,0,0.9)',
+                            background: 'rgba(0, 0, 0, 0.6)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             zIndex: 1000,
-                            padding: '2rem',
+                            padding: spacing[4],
                         }}
                         onClick={() => setSelectedSubmission(null)}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="modal-title"
                     >
                         <div
                             style={{
-                                background: theme.bg.panel,
-                                borderRadius: '16px',
+                                background: t.bg.primary,
+                                borderRadius: borderRadius['2xl'],
                                 maxWidth: '900px',
                                 width: '100%',
                                 maxHeight: '90vh',
                                 overflow: 'auto',
+                                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div style={{ padding: '1.5rem' }}>
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'flex-start',
-                                    marginBottom: '1rem',
-                                }}>
+                            <div style={{ padding: spacing[6] }}>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-start',
+                                        marginBottom: spacing[4],
+                                    }}
+                                >
                                     <div>
-                                        <h2 style={{ color: theme.text.primary, marginBottom: '0.25rem' }}>
+                                        <h2
+                                            id="modal-title"
+                                            style={{
+                                                color: t.text.primary,
+                                                fontSize: typography.size['2xl'],
+                                                fontWeight: typography.weight.bold,
+                                                marginBottom: spacing[1],
+                                            }}
+                                        >
                                             {selectedSubmission.student_name}
                                         </h2>
-                                        <p style={{ color: theme.text.secondary, fontSize: '0.9rem' }}>
+                                        <p style={{ color: t.text.secondary, fontSize: typography.size.base }}>
                                             Challenge {selectedSubmission.challenge_number}: {selectedSubmission.original_shape} → {selectedSubmission.target_shape} ({selectedSubmission.octaves} octave {selectedSubmission.direction})
                                         </p>
                                     </div>
                                     <button
                                         onClick={() => setSelectedSubmission(null)}
+                                        aria-label="Close modal"
                                         style={{
                                             background: 'none',
                                             border: 'none',
-                                            color: theme.text.tertiary,
-                                            fontSize: '1.5rem',
+                                            color: t.text.tertiary,
+                                            fontSize: typography.size['2xl'],
                                             cursor: 'pointer',
+                                            padding: spacing[2],
+                                            lineHeight: 1,
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.color = t.text.primary;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.color = t.text.tertiary;
+                                        }}
+                                        onFocus={(e) => {
+                                            e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                            e.currentTarget.style.outlineOffset = '2px';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.currentTarget.style.outline = 'none';
                                         }}
                                     >
                                         ×
                                     </button>
                                 </div>
+
                                 {/* Side-by-side comparison */}
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '1fr 1fr',
-                                    gap: '1rem',
-                                    marginBottom: '1rem',
-                                }}>
+                                <div
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '1fr 1fr',
+                                        gap: spacing[4],
+                                        marginBottom: spacing[4],
+                                    }}
+                                >
                                     {/* Student's Drawing */}
                                     <div>
-                                        <div style={{
-                                            color: theme.accent.blue,
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                            marginBottom: '0.5rem',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.05em',
-                                        }}>
+                                        <div
+                                            style={{
+                                                color: t.accent.primary,
+                                                fontSize: typography.size.xs,
+                                                fontWeight: typography.weight.semibold,
+                                                marginBottom: spacing[2],
+                                                textTransform: 'uppercase',
+                                                letterSpacing: typography.letterSpacing.wide,
+                                            }}
+                                        >
                                             Student's Drawing
                                         </div>
-                                        <div style={{
-                                            background: theme.bg.deep,
-                                            borderRadius: '8px',
-                                            padding: '0.5rem',
-                                            border: `2px solid ${theme.accent.blue}30`,
-                                        }}>
+                                        <div
+                                            style={{
+                                                background: canvasPreviewTheme.bg,
+                                                borderRadius: borderRadius.lg,
+                                                padding: spacing[2],
+                                                border: `2px solid ${t.accent.primary}30`,
+                                            }}
+                                        >
                                             <img
                                                 src={selectedSubmission.drawing_image}
-                                                alt="Student drawing"
+                                                alt="Student's waveform drawing"
                                                 style={{
                                                     width: '100%',
                                                     height: 'auto',
-                                                    borderRadius: '6px',
+                                                    borderRadius: borderRadius.md,
+                                                    display: 'block',
                                                 }}
                                             />
                                         </div>
@@ -853,74 +1168,103 @@ export default function TeacherDashboard() {
 
                                     {/* Correct Answer */}
                                     <div>
-                                        <div style={{
-                                            color: theme.accent.green,
-                                            fontSize: '0.75rem',
-                                            fontWeight: '600',
-                                            marginBottom: '0.5rem',
-                                            textTransform: 'uppercase',
-                                            letterSpacing: '0.05em',
-                                        }}>
+                                        <div
+                                            style={{
+                                                color: t.accent.success,
+                                                fontSize: typography.size.xs,
+                                                fontWeight: typography.weight.semibold,
+                                                marginBottom: spacing[2],
+                                                textTransform: 'uppercase',
+                                                letterSpacing: typography.letterSpacing.wide,
+                                            }}
+                                        >
                                             Correct Answer
                                         </div>
-                                        <div style={{
-                                            background: theme.bg.deep,
-                                            borderRadius: '8px',
-                                            padding: '0.5rem',
-                                            border: `2px solid ${theme.accent.green}30`,
-                                        }}>
+                                        <div
+                                            style={{
+                                                background: canvasPreviewTheme.bg,
+                                                borderRadius: borderRadius.lg,
+                                                padding: spacing[2],
+                                                border: `2px solid ${t.accent.success}30`,
+                                            }}
+                                        >
                                             {correctAnswerImage ? (
                                                 <img
                                                     src={correctAnswerImage}
-                                                    alt="Correct answer"
+                                                    alt="Correct waveform answer"
                                                     style={{
                                                         width: '100%',
                                                         height: 'auto',
-                                                        borderRadius: '6px',
+                                                        borderRadius: borderRadius.md,
+                                                        display: 'block',
                                                     }}
                                                 />
                                             ) : (
-                                                <div style={{
-                                                    color: theme.text.tertiary,
-                                                    textAlign: 'center',
-                                                    padding: '2rem',
-                                                    fontSize: '0.85rem',
-                                                }}>
+                                                <div
+                                                    style={{
+                                                        color: t.text.tertiary,
+                                                        textAlign: 'center',
+                                                        padding: spacing[8],
+                                                        fontSize: typography.size.sm,
+                                                    }}
+                                                >
                                                     Generating correct answer...
                                                 </div>
                                             )}
                                         </div>
                                     </div>
                                 </div>
-                                <div style={{
-                                    marginTop: '1rem',
-                                    padding: '1rem',
-                                    background: theme.bg.deep,
-                                    borderRadius: '8px',
-                                }}>
-                                    <div style={{ color: theme.text.tertiary, fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+
+                                {/* Submission info */}
+                                <div
+                                    style={{
+                                        padding: spacing[4],
+                                        background: t.bg.secondary,
+                                        borderRadius: borderRadius.lg,
+                                        marginBottom: spacing[4],
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            color: t.text.tertiary,
+                                            fontSize: typography.size.sm,
+                                            marginBottom: spacing[2],
+                                        }}
+                                    >
                                         Submitted: {new Date(selectedSubmission.created_at).toLocaleString()}
                                     </div>
-                                    <div style={{ color: theme.text.secondary, fontSize: '0.85rem' }}>
+                                    <div style={{ color: t.text.secondary, fontSize: typography.size.base }}>
                                         <strong>Task:</strong> Draw a {selectedSubmission.target_shape} wave {selectedSubmission.octaves} octave{selectedSubmission.octaves > 1 ? 's' : ''} {selectedSubmission.direction} from the original {selectedSubmission.original_shape} wave.
                                     </div>
                                 </div>
 
                                 {/* AI Marking Section */}
-                                <div style={{
-                                    marginTop: '1.5rem',
-                                    padding: '1rem',
-                                    background: theme.bg.surface,
-                                    borderRadius: '8px',
-                                    border: `1px solid ${theme.border.medium}`,
-                                }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        marginBottom: '1rem',
-                                    }}>
-                                        <h3 style={{ color: theme.text.primary, fontSize: '1rem', margin: 0 }}>
+                                <section
+                                    aria-labelledby="ai-marking-title"
+                                    style={{
+                                        padding: spacing[4],
+                                        background: t.bg.tertiary,
+                                        borderRadius: borderRadius.lg,
+                                        border: `1px solid ${t.border.subtle}`,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            marginBottom: spacing[4],
+                                        }}
+                                    >
+                                        <h3
+                                            id="ai-marking-title"
+                                            style={{
+                                                color: t.text.primary,
+                                                fontSize: typography.size.lg,
+                                                fontWeight: typography.weight.semibold,
+                                                margin: 0,
+                                            }}
+                                        >
                                             AI Marking
                                         </h3>
                                         {!selectedSubmission.ai_feedback && (
@@ -928,17 +1272,24 @@ export default function TeacherDashboard() {
                                                 onClick={() => requestAIMarking(selectedSubmission.id)}
                                                 disabled={markingId === selectedSubmission.id}
                                                 style={{
-                                                    padding: '0.5rem 1rem',
+                                                    ...buttonBase,
+                                                    padding: `${spacing[2]} ${spacing[4]}`,
                                                     background: markingId === selectedSubmission.id
-                                                        ? theme.bg.deep
-                                                        : `linear-gradient(135deg, ${theme.accent.blue} 0%, #4a8cd4 100%)`,
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    color: theme.text.primary,
-                                                    fontSize: '0.85rem',
-                                                    fontWeight: '500',
+                                                        ? t.bg.secondary
+                                                        : t.accent.primary,
+                                                    color: markingId === selectedSubmission.id
+                                                        ? t.text.secondary
+                                                        : t.text.inverse,
+                                                    fontSize: typography.size.sm,
                                                     cursor: markingId === selectedSubmission.id ? 'wait' : 'pointer',
                                                     opacity: markingId === selectedSubmission.id ? 0.7 : 1,
+                                                }}
+                                                onFocus={(e) => {
+                                                    e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                                    e.currentTarget.style.outlineOffset = '2px';
+                                                }}
+                                                onBlur={(e) => {
+                                                    e.currentTarget.style.outline = 'none';
                                                 }}
                                             >
                                                 {markingId === selectedSubmission.id ? 'Analyzing...' : 'Get AI Feedback'}
@@ -947,14 +1298,17 @@ export default function TeacherDashboard() {
                                     </div>
 
                                     {markingError && (
-                                        <div style={{
-                                            padding: '0.75rem',
-                                            background: theme.accent.red + '20',
-                                            borderRadius: '6px',
-                                            color: theme.accent.red,
-                                            fontSize: '0.85rem',
-                                            marginBottom: '1rem',
-                                        }}>
+                                        <div
+                                            style={{
+                                                padding: spacing[3],
+                                                background: t.accent.errorLight,
+                                                borderRadius: borderRadius.md,
+                                                color: t.accent.error,
+                                                fontSize: typography.size.sm,
+                                                marginBottom: spacing[4],
+                                            }}
+                                            role="alert"
+                                        >
                                             {markingError}
                                         </div>
                                     )}
@@ -962,150 +1316,257 @@ export default function TeacherDashboard() {
                                     {selectedSubmission.ai_feedback ? (
                                         <div>
                                             {/* Mark Badge */}
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '1rem',
-                                                marginBottom: '1rem',
-                                            }}>
-                                                <div style={{
-                                                    width: '60px',
-                                                    height: '60px',
-                                                    borderRadius: '12px',
-                                                    background: selectedSubmission.ai_feedback.suggestedMark >= 8
-                                                        ? theme.accent.green
-                                                        : selectedSubmission.ai_feedback.suggestedMark >= 5
-                                                        ? theme.accent.amber
-                                                        : theme.accent.red,
+                                            <div
+                                                style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    flexDirection: 'column',
-                                                }}>
-                                                    <span style={{
-                                                        color: '#fff',
-                                                        fontSize: '1.5rem',
-                                                        fontWeight: '700',
-                                                        lineHeight: 1,
-                                                    }}>
+                                                    gap: spacing[4],
+                                                    marginBottom: spacing[4],
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        width: '64px',
+                                                        height: '64px',
+                                                        borderRadius: borderRadius.xl,
+                                                        background: selectedSubmission.ai_feedback.suggestedMark >= 8
+                                                            ? t.accent.success
+                                                            : selectedSubmission.ai_feedback.suggestedMark >= 5
+                                                                ? t.accent.warning
+                                                                : t.accent.error,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        flexDirection: 'column',
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            color: t.text.inverse,
+                                                            fontSize: typography.size['2xl'],
+                                                            fontWeight: typography.weight.bold,
+                                                            lineHeight: 1,
+                                                        }}
+                                                    >
                                                         {selectedSubmission.ai_feedback.suggestedMark}
                                                     </span>
-                                                    <span style={{
-                                                        color: 'rgba(255,255,255,0.8)',
-                                                        fontSize: '0.65rem',
-                                                        fontWeight: '500',
-                                                    }}>
+                                                    <span
+                                                        style={{
+                                                            color: 'rgba(255, 255, 255, 0.8)',
+                                                            fontSize: typography.size.xs,
+                                                            fontWeight: typography.weight.medium,
+                                                        }}
+                                                    >
                                                         /10
                                                     </span>
                                                 </div>
                                                 <div>
-                                                    <div style={{ color: theme.text.primary, fontWeight: '600', marginBottom: '0.25rem' }}>
+                                                    <div
+                                                        style={{
+                                                            color: t.text.primary,
+                                                            fontWeight: typography.weight.semibold,
+                                                            marginBottom: spacing[1],
+                                                        }}
+                                                    >
                                                         {selectedSubmission.ai_feedback.suggestedMark >= 8 ? 'Excellent' :
-                                                         selectedSubmission.ai_feedback.suggestedMark >= 6 ? 'Good' :
-                                                         selectedSubmission.ai_feedback.suggestedMark >= 4 ? 'Needs Improvement' : 'Incorrect'}
+                                                            selectedSubmission.ai_feedback.suggestedMark >= 6 ? 'Good' :
+                                                                selectedSubmission.ai_feedback.suggestedMark >= 4 ? 'Needs Improvement' : 'Incorrect'}
                                                     </div>
-                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.75rem' }}>
+                                                    <div style={{ color: t.text.tertiary, fontSize: typography.size.sm }}>
                                                         Confidence: {selectedSubmission.ai_feedback.confidence || 'N/A'}
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Marking Criteria */}
-                                            <div style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: 'repeat(3, 1fr)',
-                                                gap: '0.75rem',
-                                                marginBottom: '1rem',
-                                            }}>
+                                            <div
+                                                style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns: 'repeat(3, 1fr)',
+                                                    gap: spacing[3],
+                                                    marginBottom: spacing[4],
+                                                }}
+                                            >
                                                 {/* Cycle Count */}
-                                                <div style={{
-                                                    padding: '0.75rem',
-                                                    background: theme.bg.deep,
-                                                    borderRadius: '6px',
-                                                    borderLeft: `3px solid ${selectedSubmission.ai_feedback.cycleCount?.correct ? theme.accent.green : theme.accent.red}`,
-                                                }}>
-                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem', marginBottom: '0.25rem' }}>
-                                                        CYCLES
+                                                <div
+                                                    style={{
+                                                        padding: spacing[3],
+                                                        background: t.bg.primary,
+                                                        borderRadius: borderRadius.md,
+                                                        borderLeft: `3px solid ${selectedSubmission.ai_feedback.cycleCount?.correct ? t.accent.success : t.accent.error}`,
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            color: t.text.tertiary,
+                                                            fontSize: typography.size.xs,
+                                                            marginBottom: spacing[1],
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: typography.letterSpacing.wide,
+                                                        }}
+                                                    >
+                                                        Cycles
                                                     </div>
-                                                    <div style={{ color: theme.text.primary, fontWeight: '600', fontSize: '0.9rem' }}>
+                                                    <div
+                                                        style={{
+                                                            color: t.text.primary,
+                                                            fontWeight: typography.weight.semibold,
+                                                            fontSize: typography.size.lg,
+                                                        }}
+                                                    >
                                                         {selectedSubmission.ai_feedback.cycleCount?.detected || '?'} / {selectedSubmission.ai_feedback.cycleCount?.expected || '?'}
                                                     </div>
-                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem' }}>
+                                                    <div style={{ color: t.text.tertiary, fontSize: typography.size.xs }}>
                                                         {selectedSubmission.ai_feedback.cycleCount?.marks || 0}/4 marks
                                                     </div>
                                                 </div>
 
                                                 {/* Shape */}
-                                                <div style={{
-                                                    padding: '0.75rem',
-                                                    background: theme.bg.deep,
-                                                    borderRadius: '6px',
-                                                    borderLeft: `3px solid ${selectedSubmission.ai_feedback.shapeAccuracy?.correct ? theme.accent.green : theme.accent.red}`,
-                                                }}>
-                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem', marginBottom: '0.25rem' }}>
-                                                        SHAPE
+                                                <div
+                                                    style={{
+                                                        padding: spacing[3],
+                                                        background: t.bg.primary,
+                                                        borderRadius: borderRadius.md,
+                                                        borderLeft: `3px solid ${selectedSubmission.ai_feedback.shapeAccuracy?.correct ? t.accent.success : t.accent.error}`,
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            color: t.text.tertiary,
+                                                            fontSize: typography.size.xs,
+                                                            marginBottom: spacing[1],
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: typography.letterSpacing.wide,
+                                                        }}
+                                                    >
+                                                        Shape
                                                     </div>
-                                                    <div style={{ color: theme.text.primary, fontWeight: '600', fontSize: '0.9rem', textTransform: 'capitalize' }}>
+                                                    <div
+                                                        style={{
+                                                            color: t.text.primary,
+                                                            fontWeight: typography.weight.semibold,
+                                                            fontSize: typography.size.lg,
+                                                            textTransform: 'capitalize',
+                                                        }}
+                                                    >
                                                         {selectedSubmission.ai_feedback.shapeAccuracy?.detected || '?'}
                                                     </div>
-                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem' }}>
+                                                    <div style={{ color: t.text.tertiary, fontSize: typography.size.xs }}>
                                                         {selectedSubmission.ai_feedback.shapeAccuracy?.marks || 0}/4 marks
                                                     </div>
                                                 </div>
 
                                                 {/* Quality */}
-                                                <div style={{
-                                                    padding: '0.75rem',
-                                                    background: theme.bg.deep,
-                                                    borderRadius: '6px',
-                                                    borderLeft: `3px solid ${theme.accent.blue}`,
-                                                }}>
-                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem', marginBottom: '0.25rem' }}>
-                                                        QUALITY
+                                                <div
+                                                    style={{
+                                                        padding: spacing[3],
+                                                        background: t.bg.primary,
+                                                        borderRadius: borderRadius.md,
+                                                        borderLeft: `3px solid ${t.accent.info}`,
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            color: t.text.tertiary,
+                                                            fontSize: typography.size.xs,
+                                                            marginBottom: spacing[1],
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: typography.letterSpacing.wide,
+                                                        }}
+                                                    >
+                                                        Quality
                                                     </div>
-                                                    <div style={{ color: theme.text.primary, fontWeight: '600', fontSize: '0.9rem' }}>
+                                                    <div
+                                                        style={{
+                                                            color: t.text.primary,
+                                                            fontWeight: typography.weight.semibold,
+                                                            fontSize: typography.size.lg,
+                                                        }}
+                                                    >
                                                         {selectedSubmission.ai_feedback.drawingQuality?.marks || 0}/2
                                                     </div>
-                                                    <div style={{ color: theme.text.tertiary, fontSize: '0.7rem' }}>
+                                                    <div style={{ color: t.text.tertiary, fontSize: typography.size.xs }}>
                                                         marks
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Overall Feedback */}
-                                            <div style={{
-                                                padding: '0.75rem',
-                                                background: theme.bg.deep,
-                                                borderRadius: '6px',
-                                                marginBottom: '0.75rem',
-                                            }}>
-                                                <div style={{ color: theme.text.secondary, fontSize: '0.85rem', lineHeight: 1.5 }}>
+                                            <div
+                                                style={{
+                                                    padding: spacing[4],
+                                                    background: t.bg.primary,
+                                                    borderRadius: borderRadius.md,
+                                                    marginBottom: spacing[3],
+                                                }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        color: t.text.secondary,
+                                                        fontSize: typography.size.base,
+                                                        lineHeight: typography.lineHeight.relaxed,
+                                                    }}
+                                                >
                                                     {selectedSubmission.ai_feedback.overallFeedback}
                                                 </div>
                                             </div>
 
                                             {/* Strengths & Improvements */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing[3] }}>
                                                 {selectedSubmission.ai_feedback.strengths?.length > 0 && (
                                                     <div>
-                                                        <div style={{ color: theme.accent.green, fontSize: '0.75rem', fontWeight: '600', marginBottom: '0.5rem' }}>
-                                                            STRENGTHS
+                                                        <div
+                                                            style={{
+                                                                color: t.accent.success,
+                                                                fontSize: typography.size.xs,
+                                                                fontWeight: typography.weight.semibold,
+                                                                marginBottom: spacing[2],
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: typography.letterSpacing.wide,
+                                                            }}
+                                                        >
+                                                            Strengths
                                                         </div>
-                                                        <ul style={{ margin: 0, paddingLeft: '1rem', color: theme.text.secondary, fontSize: '0.8rem' }}>
+                                                        <ul
+                                                            style={{
+                                                                margin: 0,
+                                                                paddingLeft: spacing[4],
+                                                                color: t.text.secondary,
+                                                                fontSize: typography.size.sm,
+                                                                lineHeight: typography.lineHeight.relaxed,
+                                                            }}
+                                                        >
                                                             {selectedSubmission.ai_feedback.strengths.map((s, i) => (
-                                                                <li key={i} style={{ marginBottom: '0.25rem' }}>{s}</li>
+                                                                <li key={i} style={{ marginBottom: spacing[1] }}>{s}</li>
                                                             ))}
                                                         </ul>
                                                     </div>
                                                 )}
                                                 {selectedSubmission.ai_feedback.improvements?.length > 0 && (
                                                     <div>
-                                                        <div style={{ color: theme.accent.amber, fontSize: '0.75rem', fontWeight: '600', marginBottom: '0.5rem' }}>
-                                                            TO IMPROVE
+                                                        <div
+                                                            style={{
+                                                                color: t.accent.warning,
+                                                                fontSize: typography.size.xs,
+                                                                fontWeight: typography.weight.semibold,
+                                                                marginBottom: spacing[2],
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: typography.letterSpacing.wide,
+                                                            }}
+                                                        >
+                                                            To Improve
                                                         </div>
-                                                        <ul style={{ margin: 0, paddingLeft: '1rem', color: theme.text.secondary, fontSize: '0.8rem' }}>
+                                                        <ul
+                                                            style={{
+                                                                margin: 0,
+                                                                paddingLeft: spacing[4],
+                                                                color: t.text.secondary,
+                                                                fontSize: typography.size.sm,
+                                                                lineHeight: typography.lineHeight.relaxed,
+                                                            }}
+                                                        >
                                                             {selectedSubmission.ai_feedback.improvements.map((s, i) => (
-                                                                <li key={i} style={{ marginBottom: '0.25rem' }}>{s}</li>
+                                                                <li key={i} style={{ marginBottom: spacing[1] }}>{s}</li>
                                                             ))}
                                                         </ul>
                                                     </div>
@@ -1113,18 +1574,32 @@ export default function TeacherDashboard() {
                                             </div>
 
                                             {/* Re-mark button */}
-                                            <div style={{ marginTop: '1rem', textAlign: 'right' }}>
+                                            <div style={{ marginTop: spacing[4], textAlign: 'right' }}>
                                                 <button
                                                     onClick={() => requestAIMarking(selectedSubmission.id)}
                                                     disabled={markingId === selectedSubmission.id}
                                                     style={{
-                                                        padding: '0.4rem 0.75rem',
+                                                        ...buttonBase,
+                                                        padding: `${spacing[2]} ${spacing[3]}`,
                                                         background: 'transparent',
-                                                        border: `1px solid ${theme.border.medium}`,
-                                                        borderRadius: '4px',
-                                                        color: theme.text.tertiary,
-                                                        fontSize: '0.75rem',
-                                                        cursor: 'pointer',
+                                                        border: `1px solid ${t.border.medium}`,
+                                                        color: t.text.tertiary,
+                                                        fontSize: typography.size.sm,
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.borderColor = t.border.strong;
+                                                        e.currentTarget.style.color = t.text.secondary;
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.borderColor = t.border.medium;
+                                                        e.currentTarget.style.color = t.text.tertiary;
+                                                    }}
+                                                    onFocus={(e) => {
+                                                        e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                                        e.currentTarget.style.outlineOffset = '2px';
+                                                    }}
+                                                    onBlur={(e) => {
+                                                        e.currentTarget.style.outline = 'none';
                                                     }}
                                                 >
                                                     {markingId === selectedSubmission.id ? 'Re-analyzing...' : 'Re-mark'}
@@ -1132,18 +1607,25 @@ export default function TeacherDashboard() {
                                             </div>
                                         </div>
                                     ) : (
-                                        <div style={{ color: theme.text.tertiary, fontSize: '0.85rem', textAlign: 'center', padding: '1rem' }}>
+                                        <div
+                                            style={{
+                                                color: t.text.tertiary,
+                                                fontSize: typography.size.base,
+                                                textAlign: 'center',
+                                                padding: spacing[4],
+                                            }}
+                                        >
                                             {markingId === selectedSubmission.id ? (
                                                 <div>
-                                                    <div style={{ marginBottom: '0.5rem' }}>Analyzing drawing with AI...</div>
-                                                    <div style={{ fontSize: '0.75rem' }}>This may take a few seconds</div>
+                                                    <div style={{ marginBottom: spacing[2] }}>Analyzing drawing with AI...</div>
+                                                    <div style={{ fontSize: typography.size.sm }}>This may take a few seconds</div>
                                                 </div>
                                             ) : (
                                                 'Click "Get AI Feedback" to analyze this submission'
                                             )}
                                         </div>
                                     )}
-                                </div>
+                                </section>
                             </div>
                         </div>
                     </div>

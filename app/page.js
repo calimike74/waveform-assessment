@@ -1,211 +1,272 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { getAllAssessments, assessmentTheme, typeIcons, typeLabels } from '@/lib/assessments';
+import { getAllAssessments, getAssessmentsGroupedByTopic, typeIcons, typeLabels } from '@/lib/assessments';
+import { theme, typography, borderRadius, spacing, transitions, focusRing } from '@/lib/theme';
 
 // Student Hub - Assessment Selection Page
+// Educational light theme for better readability and accessibility
 export default function AssessmentHub() {
     const [studentName, setStudentName] = useState('');
     const [hasEnteredName, setHasEnteredName] = useState(false);
+    const [isInputFocused, setIsInputFocused] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     const assessments = getAllAssessments();
-    const theme = assessmentTheme;
+    const groupedAssessments = getAssessmentsGroupedByTopic();
+    const t = theme.light; // Use light theme
+
+    // Filter assessments based on search query
+    const filteredGroups = useMemo(() => {
+        if (!searchQuery.trim()) {
+            return groupedAssessments;
+        }
+        const query = searchQuery.toLowerCase();
+        return groupedAssessments
+            .map(group => ({
+                topic: group.topic,
+                assessments: group.assessments.filter(
+                    a => a.title.toLowerCase().includes(query) ||
+                         a.description.toLowerCase().includes(query) ||
+                         group.topic.toLowerCase().includes(query)
+                )
+            }))
+            .filter(group => group.assessments.length > 0);
+    }, [searchQuery, groupedAssessments]);
 
     // Name entry screen
     if (!hasEnteredName) {
         return (
-            <div style={{
-                minHeight: '100vh',
-                background: `linear-gradient(180deg, ${theme.bg.deep} 0%, #12110e 100%)`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '2rem',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            }}>
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundImage: `
-                        radial-gradient(ellipse at 20% 20%, rgba(232, 168, 73, 0.03) 0%, transparent 50%),
-                        radial-gradient(ellipse at 80% 80%, rgba(92, 156, 230, 0.02) 0%, transparent 50%)
-                    `,
-                    pointerEvents: 'none',
-                }} />
-
-                <div style={{
-                    background: `linear-gradient(135deg, ${theme.bg.panel} 0%, ${theme.bg.surface} 100%)`,
-                    borderRadius: '16px',
-                    border: `1px solid ${theme.border.medium}`,
-                    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03)',
-                    padding: '2.5rem',
-                    maxWidth: '480px',
-                    width: '100%',
-                    position: 'relative',
-                    zIndex: 1,
-                }}>
-                    <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        background: `linear-gradient(135deg, ${theme.accent.purple}20 0%, ${theme.accent.purple}10 100%)`,
-                        border: `1px solid ${theme.accent.purple}40`,
-                        color: theme.accent.purple,
-                        padding: '0.4rem 0.8rem',
-                        borderRadius: '20px',
-                        fontSize: '0.7rem',
-                        fontWeight: '600',
-                        fontFamily: '"SF Mono", "Fira Code", monospace',
-                        letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        marginBottom: '1.5rem',
-                    }}>
-                        <span style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            background: theme.accent.purple,
-                            boxShadow: `0 0 8px ${theme.accent.purple}`,
-                        }} />
-                        Music Technology Assessments
+            <div
+                style={{
+                    minHeight: '100vh',
+                    background: t.bg.secondary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: spacing[8],
+                    fontFamily: typography.fontFamily,
+                }}
+            >
+                <main
+                    style={{
+                        background: t.bg.primary,
+                        borderRadius: borderRadius['2xl'],
+                        border: `1px solid ${t.border.subtle}`,
+                        boxShadow: t.shadow.lg,
+                        padding: spacing[10],
+                        maxWidth: '480px',
+                        width: '100%',
+                    }}
+                    role="main"
+                    aria-labelledby="hub-title"
+                >
+                    {/* Badge */}
+                    <div
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: spacing[2],
+                            background: t.accent.infoLight,
+                            border: `1px solid ${t.accent.info}30`,
+                            color: t.accent.info,
+                            padding: `${spacing[1]} ${spacing[3]}`,
+                            borderRadius: borderRadius.full,
+                            fontSize: typography.size.xs,
+                            fontWeight: typography.weight.semibold,
+                            letterSpacing: typography.letterSpacing.wide,
+                            textTransform: 'uppercase',
+                            marginBottom: spacing[6],
+                        }}
+                    >
+                        <span
+                            style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: t.accent.info,
+                            }}
+                            aria-hidden="true"
+                        />
+                        A-Level Music Technology
                     </div>
 
-                    <h1 style={{
-                        fontSize: '1.75rem',
-                        fontWeight: '600',
-                        color: theme.text.primary,
-                        marginBottom: '0.5rem',
-                        letterSpacing: '-0.02em',
-                    }}>
+                    <h1
+                        id="hub-title"
+                        style={{
+                            fontSize: typography.size['3xl'],
+                            fontWeight: typography.weight.bold,
+                            color: t.text.primary,
+                            marginBottom: spacing[2],
+                            letterSpacing: typography.letterSpacing.tight,
+                            lineHeight: typography.lineHeight.tight,
+                        }}
+                    >
                         Assessment Hub
                     </h1>
 
-                    <p style={{
-                        color: theme.text.secondary,
-                        fontSize: '0.95rem',
-                        lineHeight: '1.6',
-                        marginBottom: '2rem',
-                    }}>
-                        Enter your name to access the assessments. Your work will be
-                        <strong style={{ color: theme.text.primary }}> saved and marked</strong> by your teacher.
-                    </p>
-
-                    <div style={{ marginBottom: '1.5rem' }}>
-                        <label style={{
-                            display: 'block',
-                            color: theme.text.tertiary,
-                            fontSize: '0.8rem',
-                            marginBottom: '0.5rem',
-                            fontWeight: '500',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                        }}>
-                            Your Name
-                        </label>
-                        <input
-                            type="text"
-                            value={studentName}
-                            onChange={(e) => setStudentName(e.target.value)}
-                            placeholder="Enter your name"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && studentName.trim()) {
-                                    setHasEnteredName(true);
-                                }
-                            }}
-                            style={{
-                                width: '100%',
-                                padding: '1rem',
-                                background: theme.bg.deep,
-                                border: `1px solid ${theme.border.medium}`,
-                                borderRadius: '10px',
-                                color: theme.text.primary,
-                                fontSize: '1rem',
-                                outline: 'none',
-                            }}
-                        />
-                    </div>
-
-                    <button
-                        onClick={() => setHasEnteredName(true)}
-                        disabled={!studentName.trim()}
+                    <p
                         style={{
-                            width: '100%',
-                            padding: '1rem',
-                            borderRadius: '8px',
-                            border: 'none',
-                            fontSize: '0.95rem',
-                            fontWeight: '600',
-                            cursor: studentName.trim() ? 'pointer' : 'not-allowed',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.5rem',
-                            background: studentName.trim()
-                                ? `linear-gradient(135deg, ${theme.accent.amber} 0%, #d4922e 100%)`
-                                : theme.bg.elevated,
-                            color: studentName.trim() ? theme.bg.deep : theme.text.tertiary,
-                            boxShadow: studentName.trim() ? `0 2px 8px rgba(232, 168, 73, 0.3)` : 'none',
+                            color: t.text.secondary,
+                            fontSize: typography.size.base,
+                            lineHeight: typography.lineHeight.relaxed,
+                            marginBottom: spacing[8],
                         }}
                     >
-                        View Assessments
-                        <span style={{ fontSize: '1.1rem' }}>→</span>
-                    </button>
-                </div>
+                        Enter your name to access the assessments. Your work will be{' '}
+                        <strong style={{ color: t.text.primary, fontWeight: typography.weight.semibold }}>
+                            saved and marked
+                        </strong>{' '}
+                        by your teacher.
+                    </p>
+
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (studentName.trim()) {
+                                setHasEnteredName(true);
+                            }
+                        }}
+                    >
+                        <div style={{ marginBottom: spacing[6] }}>
+                            <label
+                                htmlFor="student-name"
+                                style={{
+                                    display: 'block',
+                                    color: t.text.primary,
+                                    fontSize: typography.size.sm,
+                                    marginBottom: spacing[2],
+                                    fontWeight: typography.weight.medium,
+                                }}
+                            >
+                                Your Name
+                            </label>
+                            <input
+                                id="student-name"
+                                type="text"
+                                value={studentName}
+                                onChange={(e) => setStudentName(e.target.value)}
+                                onFocus={() => setIsInputFocused(true)}
+                                onBlur={() => setIsInputFocused(false)}
+                                placeholder="Enter your full name"
+                                autoComplete="name"
+                                required
+                                style={{
+                                    width: '100%',
+                                    padding: spacing[4],
+                                    background: t.bg.primary,
+                                    border: `2px solid ${isInputFocused ? t.border.focus : t.border.medium}`,
+                                    borderRadius: borderRadius.lg,
+                                    color: t.text.primary,
+                                    fontSize: typography.size.base,
+                                    lineHeight: typography.lineHeight.normal,
+                                    outline: 'none',
+                                    transition: `border-color ${transitions.fast} ${transitions.easing}, box-shadow ${transitions.fast} ${transitions.easing}`,
+                                    boxShadow: isInputFocused ? `0 0 0 3px ${t.accent.primary}20` : 'none',
+                                    boxSizing: 'border-box',
+                                }}
+                                aria-describedby="name-hint"
+                            />
+                            <p
+                                id="name-hint"
+                                style={{
+                                    color: t.text.tertiary,
+                                    fontSize: typography.size.sm,
+                                    marginTop: spacing[2],
+                                }}
+                            >
+                                Use the same name for all assessments
+                            </p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={!studentName.trim()}
+                            style={{
+                                width: '100%',
+                                padding: spacing[4],
+                                borderRadius: borderRadius.lg,
+                                border: 'none',
+                                fontSize: typography.size.base,
+                                fontWeight: typography.weight.semibold,
+                                cursor: studentName.trim() ? 'pointer' : 'not-allowed',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: spacing[2],
+                                background: studentName.trim() ? t.accent.primary : t.bg.tertiary,
+                                color: studentName.trim() ? t.text.inverse : t.text.tertiary,
+                                transition: `all ${transitions.fast} ${transitions.easing}`,
+                                boxShadow: studentName.trim() ? t.shadow.md : 'none',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (studentName.trim()) {
+                                    e.currentTarget.style.background = t.accent.primaryHover;
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (studentName.trim()) {
+                                    e.currentTarget.style.background = t.accent.primary;
+                                    e.currentTarget.style.transform = 'none';
+                                }
+                            }}
+                            aria-label="View available assessments"
+                        >
+                            View Assessments
+                            <span aria-hidden="true" style={{ fontSize: '1.2rem' }}>→</span>
+                        </button>
+                    </form>
+                </main>
             </div>
         );
     }
 
     // Assessment selection hub
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: `linear-gradient(180deg, ${theme.bg.deep} 0%, #12110e 100%)`,
-            padding: '2rem',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        }}>
-            <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundImage: `
-                    radial-gradient(ellipse at 20% 20%, rgba(232, 168, 73, 0.03) 0%, transparent 50%),
-                    radial-gradient(ellipse at 80% 80%, rgba(92, 156, 230, 0.02) 0%, transparent 50%)
-                `,
-                pointerEvents: 'none',
-            }} />
-
-            <div style={{ maxWidth: '900px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+        <div
+            style={{
+                minHeight: '100vh',
+                background: t.bg.secondary,
+                padding: spacing[8],
+                fontFamily: typography.fontFamily,
+            }}
+        >
+            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
                 {/* Header */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '2rem',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                }}>
+                <header
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: spacing[6],
+                        flexWrap: 'wrap',
+                        gap: spacing[4],
+                    }}
+                >
                     <div>
-                        <div style={{
-                            fontSize: '0.65rem',
-                            color: theme.text.tertiary,
-                            fontFamily: '"SF Mono", monospace',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
-                            marginBottom: '0.25rem',
-                        }}>
-                            Music Technology Assessment Hub
-                        </div>
-                        <h1 style={{
-                            fontSize: '1.5rem',
-                            fontWeight: '600',
-                            color: theme.text.primary,
-                        }}>
+                        <p
+                            style={{
+                                fontSize: typography.size.xs,
+                                color: t.text.tertiary,
+                                fontWeight: typography.weight.medium,
+                                textTransform: 'uppercase',
+                                letterSpacing: typography.letterSpacing.wide,
+                                marginBottom: spacing[1],
+                            }}
+                        >
+                            A-Level Music Technology
+                        </p>
+                        <h1
+                            style={{
+                                fontSize: typography.size['2xl'],
+                                fontWeight: typography.weight.bold,
+                                color: t.text.primary,
+                                lineHeight: typography.lineHeight.tight,
+                            }}
+                        >
                             Welcome, {studentName}
                         </h1>
                     </div>
@@ -213,204 +274,356 @@ export default function AssessmentHub() {
                     <button
                         onClick={() => setHasEnteredName(false)}
                         style={{
-                            padding: '0.5rem 1rem',
-                            background: theme.bg.surface,
-                            border: `1px solid ${theme.border.medium}`,
-                            borderRadius: '8px',
-                            color: theme.text.secondary,
-                            fontSize: '0.85rem',
+                            padding: `${spacing[2]} ${spacing[4]}`,
+                            background: t.bg.primary,
+                            border: `1px solid ${t.border.medium}`,
+                            borderRadius: borderRadius.lg,
+                            color: t.text.secondary,
+                            fontSize: typography.size.sm,
+                            fontWeight: typography.weight.medium,
                             cursor: 'pointer',
+                            transition: `all ${transitions.fast} ${transitions.easing}`,
                         }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = t.border.strong;
+                            e.currentTarget.style.color = t.text.primary;
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = t.border.medium;
+                            e.currentTarget.style.color = t.text.secondary;
+                        }}
+                        aria-label="Change your name"
                     >
                         Change Name
                     </button>
-                </div>
+                </header>
 
-                {/* Assessment count */}
-                <div style={{
-                    background: theme.bg.panel,
-                    borderRadius: '12px',
-                    padding: '1rem 1.5rem',
-                    marginBottom: '2rem',
-                    border: `1px solid ${theme.border.subtle}`,
-                    display: 'flex',
-                    gap: '2rem',
-                    flexWrap: 'wrap',
-                }}>
-                    <div>
-                        <div style={{
-                            fontSize: '1.5rem',
-                            fontWeight: '700',
-                            color: theme.accent.amber,
-                            fontFamily: '"SF Mono", monospace',
-                        }}>
-                            {assessments.length}
-                        </div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            color: theme.text.tertiary,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                        }}>
-                            Available Assessments
-                        </div>
-                    </div>
-                    <div>
-                        <div style={{
-                            fontSize: '1.5rem',
-                            fontWeight: '700',
-                            color: theme.accent.green,
-                            fontFamily: '"SF Mono", monospace',
-                        }}>
-                            {assessments.filter(a => a.type === 'drawing').length}
-                        </div>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            color: theme.text.tertiary,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                        }}>
-                            Drawing Tasks
-                        </div>
-                    </div>
-                </div>
-
-                {/* Assessment cards */}
-                <div style={{
-                    display: 'grid',
-                    gap: '1rem',
-                }}>
-                    {assessments.map((assessment) => (
-                        <Link
-                            key={assessment.id}
-                            href={`/${assessment.id}?name=${encodeURIComponent(studentName)}`}
-                            style={{ textDecoration: 'none' }}
-                        >
-                            <div style={{
-                                background: `linear-gradient(135deg, ${theme.bg.panel} 0%, ${theme.bg.surface} 100%)`,
-                                borderRadius: '12px',
-                                border: `1px solid ${theme.border.medium}`,
-                                padding: '1.5rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
+                {/* Search bar */}
+                <div
+                    style={{
+                        marginBottom: spacing[6],
+                    }}
+                >
+                    <div
+                        style={{
+                            position: 'relative',
+                            maxWidth: '400px',
+                        }}
+                    >
+                        <span
+                            style={{
+                                position: 'absolute',
+                                left: spacing[4],
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                color: t.text.tertiary,
+                                fontSize: typography.size.lg,
+                                pointerEvents: 'none',
                             }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)';
-                                    e.currentTarget.style.borderColor = theme.accent.amber + '60';
+                            aria-hidden="true"
+                        >
+                            🔍
+                        </span>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => setIsSearchFocused(false)}
+                            placeholder="Search assessments..."
+                            style={{
+                                width: '100%',
+                                padding: `${spacing[3]} ${spacing[4]}`,
+                                paddingLeft: spacing[10],
+                                background: t.bg.primary,
+                                border: `2px solid ${isSearchFocused ? t.border.focus : t.border.medium}`,
+                                borderRadius: borderRadius.lg,
+                                color: t.text.primary,
+                                fontSize: typography.size.base,
+                                outline: 'none',
+                                transition: `border-color ${transitions.fast} ${transitions.easing}, box-shadow ${transitions.fast} ${transitions.easing}`,
+                                boxShadow: isSearchFocused ? `0 0 0 3px ${t.accent.primary}20` : t.shadow.sm,
+                                boxSizing: 'border-box',
+                            }}
+                            aria-label="Search assessments by title or topic"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                style={{
+                                    position: 'absolute',
+                                    right: spacing[3],
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: t.bg.tertiary,
+                                    border: 'none',
+                                    borderRadius: borderRadius.full,
+                                    width: '24px',
+                                    height: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: t.text.secondary,
+                                    fontSize: typography.size.sm,
                                 }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'none';
-                                    e.currentTarget.style.boxShadow = 'none';
-                                    e.currentTarget.style.borderColor = theme.border.medium;
+                                aria-label="Clear search"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+                    {searchQuery && (
+                        <p
+                            style={{
+                                fontSize: typography.size.sm,
+                                color: t.text.tertiary,
+                                marginTop: spacing[2],
+                            }}
+                        >
+                            {filteredGroups.reduce((acc, g) => acc + g.assessments.length, 0)} result{filteredGroups.reduce((acc, g) => acc + g.assessments.length, 0) !== 1 ? 's' : ''} found
+                        </p>
+                    )}
+                </div>
+
+                {/* Topic boxes grid */}
+                <main role="main" aria-label="Available assessments">
+                    <h2 className="sr-only">Select an Assessment</h2>
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                            gap: spacing[6],
+                        }}
+                    >
+                        {filteredGroups.map(({ topic, assessments: topicAssessments }) => (
+                            <section
+                                key={topic}
+                                aria-labelledby={`topic-${topic.replace(/\s+/g, '-')}`}
+                                style={{
+                                    background: t.bg.primary,
+                                    borderRadius: borderRadius.xl,
+                                    border: `1px solid ${t.border.subtle}`,
+                                    boxShadow: t.shadow.sm,
+                                    overflow: 'hidden',
                                 }}
                             >
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'flex-start',
-                                    marginBottom: '0.75rem',
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        <span style={{ fontSize: '1.5rem' }}>
-                                            {typeIcons[assessment.type] || '📋'}
-                                        </span>
-                                        <div>
-                                            <h2 style={{
-                                                color: theme.text.primary,
-                                                fontSize: '1.1rem',
-                                                fontWeight: '600',
-                                                marginBottom: '0.25rem',
-                                            }}>
-                                                {assessment.title}
-                                            </h2>
-                                            <span style={{
-                                                fontSize: '0.7rem',
-                                                color: theme.accent.purple,
-                                                background: `${theme.accent.purple}15`,
-                                                padding: '0.2rem 0.5rem',
-                                                borderRadius: '4px',
-                                                fontWeight: '500',
-                                            }}>
-                                                {assessment.topic}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{
-                                        display: 'flex',
-                                        gap: '0.5rem',
-                                        alignItems: 'center',
-                                    }}>
-                                        <span style={{
-                                            fontSize: '0.7rem',
-                                            color: theme.text.tertiary,
-                                            background: theme.bg.deep,
-                                            padding: '0.3rem 0.6rem',
-                                            borderRadius: '4px',
-                                        }}>
-                                            {assessment.challengeCount} challenges
-                                        </span>
-                                        <span style={{
-                                            fontSize: '0.7rem',
-                                            color: theme.accent.amber,
-                                            background: `${theme.accent.amber}15`,
-                                            padding: '0.3rem 0.6rem',
-                                            borderRadius: '4px',
-                                        }}>
-                                            {typeLabels[assessment.type]}
+                                {/* Topic box header */}
+                                <div
+                                    style={{
+                                        background: t.bg.tertiary,
+                                        padding: `${spacing[4]} ${spacing[5]}`,
+                                        borderBottom: `1px solid ${t.border.subtle}`,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <h2
+                                            id={`topic-${topic.replace(/\s+/g, '-')}`}
+                                            style={{
+                                                fontSize: typography.size.base,
+                                                fontWeight: typography.weight.semibold,
+                                                color: t.text.primary,
+                                                margin: 0,
+                                            }}
+                                        >
+                                            {topic}
+                                        </h2>
+                                        <span
+                                            style={{
+                                                fontSize: typography.size.xs,
+                                                color: t.text.tertiary,
+                                                background: t.bg.primary,
+                                                padding: `${spacing[1]} ${spacing[2]}`,
+                                                borderRadius: borderRadius.full,
+                                                fontWeight: typography.weight.medium,
+                                            }}
+                                        >
+                                            {topicAssessments.length}
                                         </span>
                                     </div>
                                 </div>
 
-                                <p style={{
-                                    color: theme.text.secondary,
-                                    fontSize: '0.9rem',
-                                    lineHeight: '1.5',
-                                    marginBottom: '0.75rem',
-                                }}>
-                                    {assessment.description}
-                                </p>
-
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                }}>
-                                    <span style={{
-                                        fontSize: '0.75rem',
-                                        color: theme.text.tertiary,
-                                    }}>
-                                        ⏱ {assessment.estimatedTime}
-                                    </span>
-
-                                    <span style={{
-                                        color: theme.accent.amber,
-                                        fontSize: '0.85rem',
-                                        fontWeight: '500',
+                                {/* Assessments inside the topic box */}
+                                <div
+                                    style={{
+                                        padding: spacing[3],
                                         display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.25rem',
-                                    }}>
-                                        Start Assessment →
-                                    </span>
+                                        flexDirection: 'column',
+                                        gap: spacing[2],
+                                    }}
+                                >
+                                    {topicAssessments.map((assessment) => (
+                                        <Link
+                                            key={assessment.id}
+                                            href={`/${assessment.id}?name=${encodeURIComponent(studentName)}`}
+                                            style={{ textDecoration: 'none' }}
+                                        >
+                                            <article
+                                                style={{
+                                                    background: t.bg.primary,
+                                                    borderRadius: borderRadius.lg,
+                                                    border: `1px solid ${t.border.subtle}`,
+                                                    padding: spacing[4],
+                                                    cursor: 'pointer',
+                                                    transition: `all ${transitions.fast} ${transitions.easing}`,
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.background = t.bg.secondary;
+                                                    e.currentTarget.style.borderColor = t.accent.primary + '60';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = t.bg.primary;
+                                                    e.currentTarget.style.borderColor = t.border.subtle;
+                                                }}
+                                                onFocus={(e) => {
+                                                    e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                                                    e.currentTarget.style.outlineOffset = '1px';
+                                                }}
+                                                onBlur={(e) => {
+                                                    e.currentTarget.style.outline = 'none';
+                                                }}
+                                                tabIndex={0}
+                                                aria-label={`${assessment.title} - ${assessment.description}`}
+                                            >
+                                                <div
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: spacing[3],
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            fontSize: '1.25rem',
+                                                            lineHeight: 1,
+                                                        }}
+                                                        aria-hidden="true"
+                                                    >
+                                                        {typeIcons[assessment.type] || '📋'}
+                                                    </span>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <h3
+                                                            style={{
+                                                                color: t.text.primary,
+                                                                fontSize: typography.size.sm,
+                                                                fontWeight: typography.weight.medium,
+                                                                margin: 0,
+                                                                lineHeight: typography.lineHeight.tight,
+                                                                whiteSpace: 'nowrap',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                            }}
+                                                        >
+                                                            {assessment.title}
+                                                        </h3>
+                                                        <p
+                                                            style={{
+                                                                color: t.text.tertiary,
+                                                                fontSize: typography.size.xs,
+                                                                margin: 0,
+                                                                marginTop: spacing[1],
+                                                            }}
+                                                        >
+                                                            {typeLabels[assessment.type]} • {assessment.estimatedTime}
+                                                        </p>
+                                                    </div>
+                                                    <span
+                                                        style={{
+                                                            color: t.accent.primary,
+                                                            fontSize: typography.size.base,
+                                                        }}
+                                                        aria-hidden="true"
+                                                    >
+                                                        →
+                                                    </span>
+                                                </div>
+                                            </article>
+                                        </Link>
+                                    ))}
                                 </div>
-                            </div>
-                        </Link>
-                    ))}
-                </div>
+                            </section>
+                        ))}
+                    </div>
+                </main>
 
-                {/* Empty state */}
+                {/* Empty state - no assessments */}
                 {assessments.length === 0 && (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: '3rem',
-                        color: theme.text.tertiary,
-                    }}>
-                        No assessments available yet.
+                    <div
+                        style={{
+                            textAlign: 'center',
+                            padding: spacing[12],
+                            color: t.text.tertiary,
+                            background: t.bg.primary,
+                            borderRadius: borderRadius.xl,
+                            border: `1px solid ${t.border.subtle}`,
+                        }}
+                        role="status"
+                    >
+                        <p style={{ fontSize: typography.size.lg }}>
+                            No assessments available yet.
+                        </p>
+                        <p style={{ fontSize: typography.size.sm, marginTop: spacing[2] }}>
+                            Check back later or contact your teacher.
+                        </p>
+                    </div>
+                )}
+
+                {/* Empty state - no search results */}
+                {assessments.length > 0 && filteredGroups.length === 0 && searchQuery && (
+                    <div
+                        style={{
+                            textAlign: 'center',
+                            padding: spacing[12],
+                            color: t.text.tertiary,
+                            background: t.bg.primary,
+                            borderRadius: borderRadius.xl,
+                            border: `1px solid ${t.border.subtle}`,
+                        }}
+                        role="status"
+                    >
+                        <p style={{ fontSize: typography.size.lg }}>
+                            No assessments match "{searchQuery}"
+                        </p>
+                        <p style={{ fontSize: typography.size.sm, marginTop: spacing[2] }}>
+                            Try a different search term or{' '}
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: t.accent.primary,
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline',
+                                    fontSize: 'inherit',
+                                }}
+                            >
+                                clear the search
+                            </button>
+                        </p>
                     </div>
                 )}
             </div>
+
+            {/* Screen reader only styles */}
+            <style jsx global>{`
+                .sr-only {
+                    position: absolute;
+                    width: 1px;
+                    height: 1px;
+                    padding: 0;
+                    margin: -1px;
+                    overflow: hidden;
+                    clip: rect(0, 0, 0, 0);
+                    white-space: nowrap;
+                    border: 0;
+                }
+            `}</style>
         </div>
     );
 }

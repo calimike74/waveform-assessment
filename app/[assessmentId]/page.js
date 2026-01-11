@@ -2,10 +2,10 @@
 
 import { useParams, useSearchParams } from 'next/navigation';
 import { getAssessment, assessmentExists } from '@/lib/assessments';
+import { theme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
 import WaveformAssessment from '@/components/WaveformAssessment';
-// Future imports:
-// import QuizAssessment from '@/components/engines/QuizAssessment';
-// import ListeningAssessment from '@/components/engines/ListeningAssessment';
+import QuizAssessment from '@/components/engines/QuizAssessment';
+import ListeningAssessment from '@/components/engines/ListeningAssessment';
 
 export default function AssessmentPage() {
     const params = useParams();
@@ -13,61 +13,102 @@ export default function AssessmentPage() {
 
     const assessmentId = params.assessmentId;
     const studentName = searchParams.get('name') || '';
+    const t = theme.light; // Use light theme
 
     // Check if assessment exists
     if (!assessmentExists(assessmentId)) {
         return (
-            <div style={{
-                minHeight: '100vh',
-                background: 'linear-gradient(180deg, #1a1814 0%, #12110e 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                padding: '2rem',
-            }}>
-                <div style={{
-                    background: '#252219',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(245, 240, 230, 0.15)',
-                    padding: '2.5rem',
-                    maxWidth: '480px',
-                    textAlign: 'center',
-                }}>
-                    <div style={{
-                        fontSize: '3rem',
-                        marginBottom: '1rem',
-                    }}>
+            <div
+                style={{
+                    minHeight: '100vh',
+                    background: t.bg.secondary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: typography.fontFamily,
+                    padding: spacing[8],
+                }}
+            >
+                <main
+                    style={{
+                        background: t.bg.primary,
+                        borderRadius: borderRadius['2xl'],
+                        border: `1px solid ${t.border.subtle}`,
+                        boxShadow: t.shadow.lg,
+                        padding: spacing[10],
+                        maxWidth: '480px',
+                        textAlign: 'center',
+                    }}
+                    role="main"
+                    aria-labelledby="error-title"
+                >
+                    <div
+                        style={{
+                            fontSize: '3.5rem',
+                            marginBottom: spacing[4],
+                        }}
+                        aria-hidden="true"
+                    >
                         🔍
                     </div>
-                    <h1 style={{
-                        color: '#f5f0e6',
-                        fontSize: '1.5rem',
-                        marginBottom: '0.5rem',
-                    }}>
+                    <h1
+                        id="error-title"
+                        style={{
+                            color: t.text.primary,
+                            fontSize: typography.size['2xl'],
+                            fontWeight: typography.weight.bold,
+                            marginBottom: spacing[2],
+                            lineHeight: typography.lineHeight.tight,
+                        }}
+                    >
                         Assessment Not Found
                     </h1>
-                    <p style={{
-                        color: '#a8a090',
-                        marginBottom: '1.5rem',
-                    }}>
-                        The assessment "{assessmentId}" doesn't exist.
+                    <p
+                        style={{
+                            color: t.text.secondary,
+                            fontSize: typography.size.base,
+                            lineHeight: typography.lineHeight.relaxed,
+                            marginBottom: spacing[6],
+                        }}
+                    >
+                        The assessment "{assessmentId}" doesn't exist or may have been removed.
                     </p>
                     <a
                         href="/"
                         style={{
-                            display: 'inline-block',
-                            padding: '0.75rem 1.5rem',
-                            background: 'linear-gradient(135deg, #e8a849 0%, #d4922e 100%)',
-                            color: '#1a1814',
-                            borderRadius: '8px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: spacing[2],
+                            padding: `${spacing[3]} ${spacing[6]}`,
+                            background: t.accent.primary,
+                            color: t.text.inverse,
+                            borderRadius: borderRadius.lg,
                             textDecoration: 'none',
-                            fontWeight: '600',
+                            fontWeight: typography.weight.semibold,
+                            fontSize: typography.size.base,
+                            transition: `all ${transitions.fast} ${transitions.easing}`,
+                            boxShadow: t.shadow.md,
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = t.accent.primaryHover;
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = t.accent.primary;
+                            e.currentTarget.style.transform = 'none';
+                        }}
+                        onFocus={(e) => {
+                            e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                            e.currentTarget.style.outlineOffset = '2px';
+                        }}
+                        onBlur={(e) => {
+                            e.currentTarget.style.outline = 'none';
                         }}
                     >
+                        <span aria-hidden="true">←</span>
                         Back to Assessment Hub
                     </a>
-                </div>
+                </main>
             </div>
         );
     }
@@ -86,28 +127,17 @@ export default function AssessmentPage() {
             break;
 
         case 'quiz':
-            // Future: return <QuizAssessment assessment={assessment} studentName={studentName} />;
-            return (
-                <ComingSoon
-                    title={assessment.title}
-                    type="Quiz Assessment"
-                />
-            );
+            return <QuizAssessment assessment={assessment} initialName={studentName} />;
 
         case 'listening':
-            // Future: return <ListeningAssessment assessment={assessment} studentName={studentName} />;
-            return (
-                <ComingSoon
-                    title={assessment.title}
-                    type="Listening Assessment"
-                />
-            );
+            return <ListeningAssessment assessment={assessment} initialName={studentName} />;
 
         default:
             return (
                 <ComingSoon
                     title={assessment.title}
                     type="Assessment"
+                    theme={t}
                 />
             );
     }
@@ -117,66 +147,109 @@ export default function AssessmentPage() {
 }
 
 // Placeholder component for assessments not yet implemented
-function ComingSoon({ title, type }) {
+function ComingSoon({ title, type, theme: t }) {
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(180deg, #1a1814 0%, #12110e 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-            padding: '2rem',
-        }}>
-            <div style={{
-                background: '#252219',
-                borderRadius: '16px',
-                border: '1px solid rgba(245, 240, 230, 0.15)',
-                padding: '2.5rem',
-                maxWidth: '480px',
-                textAlign: 'center',
-            }}>
-                <div style={{
-                    fontSize: '3rem',
-                    marginBottom: '1rem',
-                }}>
+        <div
+            style={{
+                minHeight: '100vh',
+                background: t.bg.secondary,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: typography.fontFamily,
+                padding: spacing[8],
+            }}
+        >
+            <main
+                style={{
+                    background: t.bg.primary,
+                    borderRadius: borderRadius['2xl'],
+                    border: `1px solid ${t.border.subtle}`,
+                    boxShadow: t.shadow.lg,
+                    padding: spacing[10],
+                    maxWidth: '480px',
+                    textAlign: 'center',
+                }}
+                role="main"
+                aria-labelledby="coming-soon-title"
+            >
+                <div
+                    style={{
+                        fontSize: '3.5rem',
+                        marginBottom: spacing[4],
+                    }}
+                    aria-hidden="true"
+                >
                     🚧
                 </div>
-                <h1 style={{
-                    color: '#f5f0e6',
-                    fontSize: '1.5rem',
-                    marginBottom: '0.5rem',
-                }}>
+                <h1
+                    id="coming-soon-title"
+                    style={{
+                        color: t.text.primary,
+                        fontSize: typography.size['2xl'],
+                        fontWeight: typography.weight.bold,
+                        marginBottom: spacing[2],
+                        lineHeight: typography.lineHeight.tight,
+                    }}
+                >
                     {title}
                 </h1>
-                <p style={{
-                    color: '#a8a090',
-                    marginBottom: '0.5rem',
-                }}>
+                <p
+                    style={{
+                        color: t.accent.warning,
+                        fontSize: typography.size.base,
+                        fontWeight: typography.weight.medium,
+                        marginBottom: spacing[2],
+                    }}
+                >
                     {type} coming soon!
                 </p>
-                <p style={{
-                    color: '#6b6560',
-                    fontSize: '0.85rem',
-                    marginBottom: '1.5rem',
-                }}>
-                    This assessment type is being developed.
+                <p
+                    style={{
+                        color: t.text.tertiary,
+                        fontSize: typography.size.sm,
+                        lineHeight: typography.lineHeight.relaxed,
+                        marginBottom: spacing[6],
+                    }}
+                >
+                    This assessment type is currently being developed. Check back later.
                 </p>
                 <a
                     href="/"
                     style={{
-                        display: 'inline-block',
-                        padding: '0.75rem 1.5rem',
-                        background: 'linear-gradient(135deg, #e8a849 0%, #d4922e 100%)',
-                        color: '#1a1814',
-                        borderRadius: '8px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: spacing[2],
+                        padding: `${spacing[3]} ${spacing[6]}`,
+                        background: t.accent.primary,
+                        color: t.text.inverse,
+                        borderRadius: borderRadius.lg,
                         textDecoration: 'none',
-                        fontWeight: '600',
+                        fontWeight: typography.weight.semibold,
+                        fontSize: typography.size.base,
+                        transition: `all ${transitions.fast} ${transitions.easing}`,
+                        boxShadow: t.shadow.md,
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.background = t.accent.primaryHover;
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.background = t.accent.primary;
+                        e.currentTarget.style.transform = 'none';
+                    }}
+                    onFocus={(e) => {
+                        e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                        e.currentTarget.style.outlineOffset = '2px';
+                    }}
+                    onBlur={(e) => {
+                        e.currentTarget.style.outline = 'none';
                     }}
                 >
+                    <span aria-hidden="true">←</span>
                     Back to Assessment Hub
                 </a>
-            </div>
+            </main>
         </div>
     );
 }
