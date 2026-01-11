@@ -9,9 +9,9 @@ import { supabase } from '@/lib/supabase';
 // 10 Challenges - Submissions saved for marking
 // ============================================
 
-const WaveformAssessment = () => {
-    const [studentName, setStudentName] = useState('');
-    const [hasStarted, setHasStarted] = useState(false);
+const WaveformAssessment = ({ initialName = '' }) => {
+    const [studentName, setStudentName] = useState(initialName);
+    const [hasStarted, setHasStarted] = useState(!!initialName);
     const [currentChallenge, setCurrentChallenge] = useState(0);
     const [completedChallenges, setCompletedChallenges] = useState(new Set());
     const [copiedChallenges, setCopiedChallenges] = useState(new Set());
@@ -600,6 +600,7 @@ const WaveformAssessment = () => {
             const { data, error } = await supabase
                 .from('submissions')
                 .insert({
+                    assessment_id: 'waveform-octaves', // For multi-assessment support
                     student_name: studentName,
                     challenge_number: currentChallenge + 1,
                     original_shape: currentChallengeData.originalShape,

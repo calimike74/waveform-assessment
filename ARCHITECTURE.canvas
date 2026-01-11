@@ -1,232 +1,31 @@
 {
-  "nodes": [
-    {
-      "id": "title",
-      "type": "text",
-      "x": 400,
-      "y": -400,
-      "width": 400,
-      "height": 80,
-      "text": "# Waveform Assessment App\n## Architecture Overview"
-    },
-    {
-      "id": "student",
-      "type": "text",
-      "x": -200,
-      "y": -100,
-      "width": 200,
-      "height": 100,
-      "color": "3",
-      "text": "## Student\n\nOpens browser\nCompletes assessment\nSubmits answers"
-    },
-    {
-      "id": "nextjs",
-      "type": "text",
-      "x": 150,
-      "y": -150,
-      "width": 280,
-      "height": 200,
-      "color": "1",
-      "text": "## Next.js 15 App\n\n**Frontend Layer**\n- React 19 components\n- Tailwind CSS styling\n- Web Audio API\n- Client-side interactivity\n\n`waveform-assessment.vercel.app`"
-    },
-    {
-      "id": "supabase",
-      "type": "text",
-      "x": 550,
-      "y": -150,
-      "width": 280,
-      "height": 200,
-      "color": "4",
-      "text": "## Supabase\n\n**Database Layer**\n- PostgreSQL database\n- Row Level Security\n- REST API\n- Real-time subscriptions\n\n`waveform_submissions` table"
-    },
-    {
-      "id": "teacher",
-      "type": "text",
-      "x": 950,
-      "y": -100,
-      "width": 200,
-      "height": 100,
-      "color": "5",
-      "text": "## Teacher\n\nViews submissions\nAnalyzes results\nProvides feedback"
-    },
-    {
-      "id": "vercel-label",
-      "type": "text",
-      "x": 150,
-      "y": 150,
-      "width": 280,
-      "height": 180,
-      "color": "6",
-      "text": "## Vercel\n\n**Deployment Platform**\n- Automatic builds\n- Global CDN\n- HTTPS included\n- Preview deployments\n- Environment variables"
-    },
-    {
-      "id": "github",
-      "type": "text",
-      "x": -200,
-      "y": 150,
-      "width": 200,
-      "height": 140,
-      "color": "2",
-      "text": "## GitHub\n\n**Source Control**\n- Version history\n- Collaboration\n- Triggers deploys"
-    },
-    {
-      "id": "local-dev",
-      "type": "text",
-      "x": -200,
-      "y": 380,
-      "width": 200,
-      "height": 120,
-      "color": "2",
-      "text": "## Local Dev\n\n`npm run dev`\n\nCode changes\nTesting"
-    },
-    {
-      "id": "react-component",
-      "type": "text",
-      "x": 550,
-      "y": 150,
-      "width": 280,
-      "height": 180,
-      "color": "1",
-      "text": "## React Component\n\n**WaveformAssessment.jsx**\n- Audio generation\n- Quiz interface\n- Score tracking\n- Submission handler\n\n`'use client'` directive"
-    },
-    {
-      "id": "tech-stack-header",
-      "type": "text",
-      "x": 950,
-      "y": 150,
-      "width": 200,
-      "height": 60,
-      "text": "### Tech Stack\n**The Modern Indie Stack**"
-    },
-    {
-      "id": "tech-list",
-      "type": "text",
-      "x": 950,
-      "y": 220,
-      "width": 200,
-      "height": 200,
-      "color": "6",
-      "text": "- **Next.js 15**\n- **React 19**\n- **Tailwind CSS**\n- **Supabase**\n- **Vercel**\n- **PostgreSQL**\n\nAll free tier!"
-    },
-    {
-      "id": "data-flow-label",
-      "type": "text",
-      "x": 400,
-      "y": -280,
-      "width": 200,
-      "height": 50,
-      "text": "### Data Flow (horizontal)"
-    },
-    {
-      "id": "deploy-flow-label",
-      "type": "text",
-      "x": -50,
-      "y": 500,
-      "width": 200,
-      "height": 50,
-      "text": "### Deployment Flow"
-    },
-    {
-      "id": "db-table",
-      "type": "text",
-      "x": 550,
-      "y": 420,
-      "width": 280,
-      "height": 160,
-      "color": "4",
-      "text": "### Database Schema\n\n```\nwaveform_submissions\n- id (UUID)\n- student_name\n- answers (JSONB)\n- score\n- percentage\n- submitted_at\n```"
-    },
-    {
-      "id": "env-vars",
-      "type": "text",
-      "x": 250,
-      "y": 420,
-      "width": 220,
-      "height": 120,
-      "color": "6",
-      "text": "### Environment Variables\n\n```\nNEXT_PUBLIC_SUPABASE_URL\nNEXT_PUBLIC_SUPABASE_ANON_KEY\n```"
-    }
-  ],
-  "edges": [
-    {
-      "id": "student-to-app",
-      "fromNode": "student",
-      "fromSide": "right",
-      "toNode": "nextjs",
-      "toSide": "left",
-      "label": "Uses"
-    },
-    {
-      "id": "app-to-supabase",
-      "fromNode": "nextjs",
-      "fromSide": "right",
-      "toNode": "supabase",
-      "toSide": "left",
-      "label": "Saves data"
-    },
-    {
-      "id": "supabase-to-teacher",
-      "fromNode": "supabase",
-      "fromSide": "right",
-      "toNode": "teacher",
-      "toSide": "left",
-      "label": "Views"
-    },
-    {
-      "id": "local-to-github",
-      "fromNode": "local-dev",
-      "fromSide": "top",
-      "toNode": "github",
-      "toSide": "bottom",
-      "label": "git push"
-    },
-    {
-      "id": "github-to-vercel",
-      "fromNode": "github",
-      "fromSide": "right",
-      "toNode": "vercel-label",
-      "toSide": "left",
-      "label": "Webhook"
-    },
-    {
-      "id": "vercel-to-nextjs",
-      "fromNode": "vercel-label",
-      "fromSide": "top",
-      "toNode": "nextjs",
-      "toSide": "bottom",
-      "label": "Hosts"
-    },
-    {
-      "id": "nextjs-to-component",
-      "fromNode": "nextjs",
-      "fromSide": "bottom",
-      "toNode": "react-component",
-      "toSide": "top",
-      "label": "Contains"
-    },
-    {
-      "id": "component-to-supabase",
-      "fromNode": "react-component",
-      "fromSide": "top",
-      "toNode": "supabase",
-      "toSide": "bottom",
-      "label": "Submits to"
-    },
-    {
-      "id": "vercel-to-env",
-      "fromNode": "vercel-label",
-      "fromSide": "bottom",
-      "toNode": "env-vars",
-      "toSide": "top",
-      "label": "Provides"
-    },
-    {
-      "id": "supabase-to-db",
-      "fromNode": "supabase",
-      "fromSide": "bottom",
-      "toNode": "db-table",
-      "toSide": "top",
-      "label": "Stores in"
-    }
-  ]
+	"nodes":[
+		{"id":"title","type":"text","x":400,"y":-400,"width":400,"height":80,"text":"# Waveform Assessment App\n## Architecture Overview"},
+		{"id":"student","type":"text","x":-200,"y":-100,"width":200,"height":100,"color":"3","text":"## Student\n\nOpens browser\nCompletes assessment\nSubmits answers"},
+		{"id":"nextjs","type":"text","x":150,"y":-150,"width":280,"height":200,"color":"1","text":"## Next.js 15 App\n\n**Frontend Layer**\n- React 19 components\n- Tailwind CSS styling\n- Web Audio API\n- Client-side interactivity\n\n`waveform-assessment.vercel.app`"},
+		{"id":"supabase","type":"text","x":550,"y":-150,"width":280,"height":200,"color":"4","text":"## Supabase\n\n**Database Layer**\n- PostgreSQL database\n- Row Level Security\n- REST API\n- Real-time subscriptions\n\n`waveform_submissions` table"},
+		{"id":"teacher","type":"text","x":950,"y":-100,"width":200,"height":100,"color":"5","text":"## Teacher\n\nViews submissions\nAnalyzes results\nProvides feedback"},
+		{"id":"vercel-label","type":"text","x":150,"y":150,"width":280,"height":180,"color":"6","text":"## Vercel\n\n**Deployment Platform**\n- Automatic builds\n- Global CDN\n- HTTPS included\n- Preview deployments\n- Environment variables"},
+		{"id":"github","type":"text","x":-200,"y":150,"width":200,"height":140,"color":"2","text":"## GitHub\n\n**Source Control**\n- Version history\n- Collaboration\n- Triggers deploys"},
+		{"id":"local-dev","type":"text","x":-200,"y":380,"width":200,"height":120,"color":"2","text":"## Local Dev\n\n`npm run dev`\n\nCode changes\nTesting"},
+		{"id":"react-component","type":"text","x":550,"y":150,"width":280,"height":180,"color":"1","text":"## React Component\n\n**WaveformAssessment.jsx**\n- Audio generation\n- Quiz interface\n- Score tracking\n- Submission handler\n\n`'use client'` directive"},
+		{"id":"tech-stack-header","type":"text","x":950,"y":150,"width":200,"height":60,"text":"### Tech Stack\n**The Modern Indie Stack**"},
+		{"id":"tech-list","type":"text","x":950,"y":220,"width":200,"height":200,"color":"6","text":"- **Next.js 15**\n- **React 19**\n- **Tailwind CSS**\n- **Supabase**\n- **Vercel**\n- **PostgreSQL**\n\nAll free tier!"},
+		{"id":"data-flow-label","type":"text","x":400,"y":-280,"width":200,"height":50,"text":"### Data Flow (horizontal)"},
+		{"id":"deploy-flow-label","type":"text","x":-50,"y":500,"width":200,"height":50,"text":"### Deployment Flow"},
+		{"id":"db-table","type":"text","x":550,"y":420,"width":280,"height":160,"color":"4","text":"### Database Schema\n\n```\nwaveform_submissions\n- id (UUID)\n- student_name\n- answers (JSONB)\n- score\n- percentage\n- submitted_at\n```"},
+		{"id":"env-vars","type":"text","x":250,"y":420,"width":220,"height":120,"color":"6","text":"### Environment Variables\n\n```\nNEXT_PUBLIC_SUPABASE_URL\nNEXT_PUBLIC_SUPABASE_ANON_KEY\n```"}
+	],
+	"edges":[
+		{"id":"student-to-app","fromNode":"student","fromSide":"right","toNode":"nextjs","toSide":"left","label":"Uses"},
+		{"id":"app-to-supabase","fromNode":"nextjs","fromSide":"right","toNode":"supabase","toSide":"left","label":"Saves data"},
+		{"id":"supabase-to-teacher","fromNode":"supabase","fromSide":"right","toNode":"teacher","toSide":"left","label":"Views"},
+		{"id":"local-to-github","fromNode":"local-dev","fromSide":"top","toNode":"github","toSide":"bottom","label":"git push"},
+		{"id":"github-to-vercel","fromNode":"github","fromSide":"right","toNode":"vercel-label","toSide":"left","label":"Webhook"},
+		{"id":"vercel-to-nextjs","fromNode":"vercel-label","fromSide":"top","toNode":"nextjs","toSide":"bottom","label":"Hosts"},
+		{"id":"nextjs-to-component","fromNode":"nextjs","fromSide":"bottom","toNode":"react-component","toSide":"top","label":"Contains"},
+		{"id":"component-to-supabase","fromNode":"react-component","fromSide":"top","toNode":"supabase","toSide":"bottom","label":"Submits to"},
+		{"id":"vercel-to-env","fromNode":"vercel-label","fromSide":"bottom","toNode":"env-vars","toSide":"top","label":"Provides"},
+		{"id":"supabase-to-db","fromNode":"supabase","fromSide":"bottom","toNode":"db-table","toSide":"top","label":"Stores in"}
+	]
 }

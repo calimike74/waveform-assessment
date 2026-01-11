@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getAllAssessments } from '@/lib/assessments';
 
 // Waveform shape definitions (same as assessment component)
 const waveformShapes = {
@@ -36,7 +37,8 @@ export default function TeacherDashboard() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [submissions, setSubmissions] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [filter, setFilter] = useState({ student: '', challenge: '' });
+    const [filter, setFilter] = useState({ student: '', challenge: '', assessment: '' });
+    const availableAssessments = getAllAssessments();
     const [selectedSubmission, setSelectedSubmission] = useState(null);
     const [markingId, setMarkingId] = useState(null);
     const [markingError, setMarkingError] = useState(null);
@@ -386,10 +388,14 @@ export default function TeacherDashboard() {
     // Get unique student names for filter
     const studentNames = [...new Set(submissions.map(s => s.student_name))].sort();
 
+    // Get unique assessment IDs for filter dropdown
+    const assessmentIds = [...new Set(submissions.map(s => s.assessment_id || 'waveform-octaves'))];
+
     // Filter submissions
     const filteredSubmissions = submissions.filter(s => {
         if (filter.student && s.student_name !== filter.student) return false;
         if (filter.challenge && s.challenge_number !== parseInt(filter.challenge)) return false;
+        if (filter.assessment && (s.assessment_id || 'waveform-octaves') !== filter.assessment) return false;
         return true;
     });
 
@@ -586,6 +592,23 @@ export default function TeacherDashboard() {
                         ))}
                     </select>
                     <select
+                        value={filter.assessment}
+                        onChange={(e) => setFilter(f => ({ ...f, assessment: e.target.value }))}
+                        style={{
+                            padding: '0.625rem 1rem',
+                            background: theme.bg.surface,
+                            border: `1px solid ${theme.border.medium}`,
+                            borderRadius: '8px',
+                            color: theme.text.primary,
+                            fontSize: '0.875rem',
+                        }}
+                    >
+                        <option value="">All Assessments</option>
+                        {availableAssessments.map(a => (
+                            <option key={a.id} value={a.id}>{a.title}</option>
+                        ))}
+                    </select>
+                    <select
                         value={filter.challenge}
                         onChange={(e) => setFilter(f => ({ ...f, challenge: e.target.value }))}
                         style={{
@@ -602,9 +625,9 @@ export default function TeacherDashboard() {
                             <option key={n} value={n}>Challenge {n}</option>
                         ))}
                     </select>
-                    {(filter.student || filter.challenge) && (
+                    {(filter.student || filter.challenge || filter.assessment) && (
                         <button
-                            onClick={() => setFilter({ student: '', challenge: '' })}
+                            onClick={() => setFilter({ student: '', challenge: '', assessment: '' })}
                             style={{
                                 padding: '0.625rem 1rem',
                                 background: 'transparent',
