@@ -7,8 +7,8 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// Challenge definitions - must match WaveformAssessment.jsx
-const challengeData = {
+// Challenge definitions for waveform-octaves assessment
+const octaveChallengeData = {
     1: { originalCycles: 4, octaves: 1, direction: 'lower' },  // 4 → 2 cycles
     2: { originalCycles: 2, octaves: 1, direction: 'higher' }, // 2 → 4 cycles
     3: { originalCycles: 4, octaves: 1, direction: 'lower' },  // 4 → 2 cycles
@@ -21,9 +21,23 @@ const challengeData = {
     10: { originalCycles: 3, octaves: 1, direction: 'higher' } // 3 → 6 cycles
 };
 
+// Challenge definitions for waveform-periods assessment
+const periodChallengeData = {
+    1: { shape: 'sine', periodMs: 1, expectedCycles: 5, transitionPoints: null },
+    2: { shape: 'square', periodMs: 2, expectedCycles: 2.5, transitionPoints: [1, 2, 3, 4] },
+    3: { shape: 'sine', periodMs: 0.5, expectedCycles: 10, transitionPoints: null },
+    4: { shape: 'triangle', periodMs: 1, expectedCycles: 5, transitionPoints: null },
+    5: { shape: 'square', periodMs: 1, expectedCycles: 5, transitionPoints: [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5] },
+    6: { shape: 'saw', periodMs: 2, expectedCycles: 2.5, transitionPoints: [2, 4] },
+    7: { shape: 'sine', periodMs: 4, expectedCycles: 1.25, transitionPoints: null },
+    8: { shape: 'triangle', periodMs: 2, expectedCycles: 2.5, transitionPoints: null },
+    9: { shape: 'square', periodMs: 0.5, expectedCycles: 10, transitionPoints: [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4, 4.25, 4.5, 4.75] },
+    10: { shape: 'saw', periodMs: 1, expectedCycles: 5, transitionPoints: [1, 2, 3, 4, 5] }
+};
+
 function calculateExpectedCycles(challengeNumber, originalCycles, octaves, direction) {
     // Use challenge data if available, otherwise calculate from parameters
-    const challenge = challengeData[challengeNumber];
+    const challenge = octaveChallengeData[challengeNumber];
     const cycles = challenge ? challenge.originalCycles : originalCycles;
     const oct = challenge ? challenge.octaves : octaves;
     const dir = challenge ? challenge.direction : direction;
@@ -32,6 +46,112 @@ function calculateExpectedCycles(challengeNumber, originalCycles, octaves, direc
         return cycles * Math.pow(2, oct);
     } else {
         return cycles / Math.pow(2, oct);
+    }
+}
+
+// Build marking prompt for period-based waveform assessment
+function buildPeriodMarkingPrompt(submission, challenge, correctAnswerData) {
+    const hasTransitions = challenge.shape === 'square' || challenge.shape === 'saw';
+    const transitionInfo = hasTransitions && challenge.transitionPoints
+        ? `\nTRANSITION TIMING VERIFICATION (for ${challenge.shape} waves):
+Expected transition times: ${challenge.transitionPoints.join(', ')}ms
+${challenge.shape === 'square' ? 'Square wave transitions (high<->low) should occur at these times.' : 'Sawtooth resets (instant drops) should occur at these times.'}
+Check that the student\'s drawing shows transitions at approximately these positions.`
+        : '';
+
+    const transitionJson = hasTransitions
+        ? `"transitionTiming": {
+    "expectedPositions": [${(challenge.transitionPoints || []).join(', ')}],
+    "assessment": "<accurate/slightly off/significantly wrong>",
+    "correct": <true if transitions are at approximately correct positions>
+  },`
+        : '';
+
+    if (correctAnswerData) {
+        return `You are marking a student's period waveform drawing for A-Level Music Technology.
+
+TWO IMAGES PROVIDED:
+1. FIRST IMAGE (Student's Drawing): Time axis 0-5ms, student's waveform (solid blue)
+2. SECOND IMAGE (Correct Answer): Time axis 0-5ms, correct waveform (solid green)
+
+TASK GIVEN TO STUDENT:
+- Draw a ${challenge.shape.toUpperCase()} wave with period ${challenge.periodMs}ms
+- Time window: 0-5ms
+- Expected number of cycles: ${challenge.expectedCycles} (calculated: 5ms / ${challenge.periodMs}ms)
+${transitionInfo}
+
+BINARY MARKING RULES (1 mark per question):
+Award 1 mark ONLY if ALL conditions are met:
+1. CYCLE COUNT: Student's blue line has approximately ${challenge.expectedCycles} complete cycles
+2. WAVEFORM SHAPE: Student's blue line shows correct ${challenge.shape} wave characteristics
+${hasTransitions ? `3. TRANSITION TIMING: Transitions occur at approximately correct time positions` : ''}
+
+Award 0 marks if any condition is wrong.
+
+SHAPE CHARACTERISTICS:
+${challenge.shape === 'sine' ? '- SINE: Smooth sinusoidal curve with rounded peaks and troughs' : ''}
+${challenge.shape === 'square' ? '- SQUARE: Flat tops and bottoms with vertical transitions (sharp corners)' : ''}
+${challenge.shape === 'saw' ? '- SAW: Linear diagonal ramps with instant vertical resets' : ''}
+${challenge.shape === 'triangle' ? '- TRIANGLE: Linear segments meeting at sharp peaks and troughs' : ''}
+
+IMPORTANT: Address the student directly using "you" in feedback.
+
+Respond with JSON only:
+{
+  "cycleCount": {
+    "detected": <number of complete cycles visible in blue line>,
+    "expected": ${challenge.expectedCycles},
+    "correct": <true if detected approximately matches expected>
+  },
+  "shapeAccuracy": {
+    "detected": "<sine/square/saw/triangle/unclear>",
+    "expected": "${challenge.shape}",
+    "correct": <true if shape matches>
+  },
+  ${transitionJson}
+  "mark": <1 if ALL required conditions are correct, otherwise 0>,
+  "feedback": "<brief constructive feedback addressing the student with 'you'>"
+}`;
+    } else {
+        return `You are marking a student's period waveform drawing for A-Level Music Technology.
+
+IMAGE:
+- Blue line = THE STUDENT'S DRAWING to mark
+- Time axis: 0-5ms (X-axis, shown at bottom)
+- Displacement axis (Y-axis)
+
+TASK GIVEN TO STUDENT:
+- Draw a ${challenge.shape.toUpperCase()} wave with period ${challenge.periodMs}ms
+- Time window: 0-5ms
+- Expected number of cycles: ${challenge.expectedCycles} (calculated: 5ms / ${challenge.periodMs}ms)
+${transitionInfo}
+
+BINARY MARKING RULES (1 mark per question):
+Award 1 mark ONLY if ALL conditions are met:
+1. CYCLE COUNT: Drawing shows approximately ${challenge.expectedCycles} complete cycles
+2. WAVEFORM SHAPE: Drawing shows correct ${challenge.shape} wave characteristics
+${hasTransitions ? `3. TRANSITION TIMING: Transitions occur at approximately correct time positions` : ''}
+
+Award 0 marks if any condition is wrong.
+
+IMPORTANT: Address the student directly using "you" in feedback.
+
+Respond with JSON only:
+{
+  "cycleCount": {
+    "detected": <number of complete cycles visible>,
+    "expected": ${challenge.expectedCycles},
+    "correct": <true if detected approximately matches expected>
+  },
+  "shapeAccuracy": {
+    "detected": "<sine/square/saw/triangle/unclear>",
+    "expected": "${challenge.shape}",
+    "correct": <true if shape matches>
+  },
+  ${transitionJson}
+  "mark": <1 if ALL required conditions are correct, otherwise 0>,
+  "feedback": "<brief constructive feedback addressing the student with 'you'>"
+}`;
     }
 }
 
@@ -61,16 +181,30 @@ export async function POST(request) {
             return Response.json({ error: 'Submission not found' }, { status: 404 });
         }
 
-        // Calculate expected cycles
-        const expectedCycles = calculateExpectedCycles(
-            submission.challenge_number,
-            4, // default original cycles
-            submission.octaves,
-            submission.direction
-        );
+        // Determine assessment type and get appropriate challenge data
+        const assessmentId = submission.assessment_id;
+        const isPeriodAssessment = assessmentId === 'waveform-periods';
 
-        const challenge = challengeData[submission.challenge_number] || {};
-        const originalCycles = challenge.originalCycles || 4;
+        let expectedCycles;
+        let originalCycles;
+        let challenge;
+
+        if (isPeriodAssessment) {
+            // Period-based assessment
+            challenge = periodChallengeData[submission.challenge_number] || {};
+            expectedCycles = challenge.expectedCycles || (5 / (submission.period_ms || 1));
+            originalCycles = null; // Not used for period assessment
+        } else {
+            // Octave-based assessment (default)
+            challenge = octaveChallengeData[submission.challenge_number] || {};
+            originalCycles = challenge.originalCycles || 4;
+            expectedCycles = calculateExpectedCycles(
+                submission.challenge_number,
+                4, // default original cycles
+                submission.octaves,
+                submission.direction
+            );
+        }
 
         // Prepare image data - remove data URL prefix if present
         let imageData = submission.drawing_image;
@@ -104,99 +238,94 @@ export async function POST(request) {
             }
         }
 
-        // Build the marking prompt based on whether we have a correct answer image
-        const markingPrompt = correctAnswerData
-            ? `You are marking a student's waveform drawing assessment for A-Level Music Technology.
+        // Build the marking prompt based on assessment type and whether we have a correct answer image
+        // BINARY MARKING: 1 mark if all conditions are correct, 0 otherwise
+        let markingPrompt;
 
-You have TWO IMAGES to compare:
-1. FIRST IMAGE (Student's Drawing): Shows the original waveform (dashed gray) and the student's attempt (solid blue)
-2. SECOND IMAGE (Correct Answer): Shows the original waveform (dashed gray) and the CORRECT answer (solid green)
+        if (isPeriodAssessment) {
+            // Use period-based marking prompt
+            markingPrompt = buildPeriodMarkingPrompt(submission, challenge, correctAnswerData);
+        } else {
+            // Use octave-based marking prompt
+            markingPrompt = correctAnswerData
+            ? `You are marking a student's waveform drawing for A-Level Music Technology.
 
-TASK CONTEXT:
-- Original waveform: ${submission.original_shape} wave with ${originalCycles} cycles
-- Student was asked to draw: ${submission.target_shape} wave, ${submission.octaves} octave(s) ${submission.direction}
+TWO IMAGES PROVIDED:
+1. FIRST IMAGE (Student's Drawing): Original waveform (dashed gray) + student's attempt (solid blue)
+2. SECOND IMAGE (Correct Answer): Original waveform (dashed gray) + correct answer (solid green)
+
+TASK:
+- Original: ${submission.original_shape} wave with ${originalCycles} cycles
+- Student asked to draw: ${submission.target_shape} wave, ${submission.octaves} octave(s) ${submission.direction}
 - Expected: ${expectedCycles} cycles of a ${submission.target_shape} wave
 
-MARKING INSTRUCTIONS:
-Compare the student's BLUE line in Image 1 with the CORRECT GREEN line in Image 2. Mark based on how closely they match.
+BINARY MARKING RULES (1 mark per question):
+Award 1 mark ONLY if BOTH conditions are met:
+1. CYCLE COUNT: The student's blue line has ${expectedCycles} complete cycles (peaks and troughs)
+2. WAVEFORM SHAPE: The student's blue line shows the correct ${submission.target_shape} wave shape
 
-MARKING CRITERIA (10 marks total):
-1. CYCLE COUNT (4 marks): Does the blue line have the same number of cycles as the green line? Count them.
-2. SHAPE ACCURACY (4 marks): Does the blue line match the shape of the green line?
-3. DRAWING QUALITY (2 marks): Is the drawing clear, consistent in amplitude, and well-executed?
+Award 0 marks if either condition is wrong.
 
-Provide your assessment as JSON in this exact format:
+Count cycles by counting complete oscillations (peak-to-trough-to-peak = 1 cycle).
+For octave transformations: higher = doubled cycles, lower = halved cycles.
+
+IMPORTANT: In your feedback, address the student directly using "you" (e.g. "You drew..." not "The student drew...").
+
+Provide your assessment as JSON:
 {
   "cycleCount": {
-    "detected": <number of cycles you count in the student's blue line>,
+    "detected": <number of complete cycles in the blue line>,
     "expected": ${expectedCycles},
-    "correct": <true if detected equals expected, false otherwise>,
-    "marks": <0-4 based on accuracy>,
-    "feedback": "<specific feedback about cycle count>"
+    "correct": <true if detected equals expected>
   },
   "shapeAccuracy": {
-    "detected": "<what shape you see in the blue line: sine/square/saw/triangle/unclear>",
+    "detected": "<sine/square/saw/triangle/unclear>",
     "expected": "${submission.target_shape}",
-    "correct": <true if shape matches the green line, false otherwise>,
-    "marks": <0-4 based on how well it matches>,
-    "feedback": "<specific feedback about shape accuracy>"
+    "correct": <true if shape matches>
   },
-  "drawingQuality": {
-    "marks": <0-2>,
-    "feedback": "<feedback about clarity and consistency>"
-  },
-  "overallFeedback": "<2-3 sentences comparing the student's work to the correct answer>",
-  "strengths": ["<strength 1>", "<strength 2 if applicable>"],
-  "improvements": ["<improvement 1>", "<improvement 2 if applicable>"],
-  "suggestedMark": <total out of 10>,
-  "confidence": "<high/medium/low - how confident you are in this assessment>"
+  "mark": <1 if BOTH cycleCount.correct AND shapeAccuracy.correct are true, otherwise 0>,
+  "feedback": "<brief feedback addressing the student directly using 'you' - e.g. 'Well done! You drew...' or 'You drew X cycles but needed Y...'>"
 }
 
-Return ONLY the JSON object, no other text.`
-            : `You are marking a student's waveform drawing assessment for A-Level Music Technology.
+Return ONLY the JSON object.`
+            : `You are marking a student's waveform drawing for A-Level Music Technology.
 
-IMAGE CONTEXT:
-- The dashed gray line shows the ORIGINAL waveform: a ${submission.original_shape} wave with ${originalCycles} cycles
-- The solid blue line is the STUDENT'S DRAWING that you need to mark
-- The student was asked to draw a ${submission.target_shape} wave that is ${submission.octaves} octave(s) ${submission.direction}
+IMAGE:
+- Dashed gray line = ORIGINAL waveform: ${submission.original_shape} wave with ${originalCycles} cycles
+- Solid blue line = THE STUDENT'S DRAWING to mark
+- Task: Draw a ${submission.target_shape} wave, ${submission.octaves} octave(s) ${submission.direction}
+- Expected: ${expectedCycles} cycles of a ${submission.target_shape} wave
 
-EXPECTED ANSWER:
-- The student should have drawn ${expectedCycles} cycles of a ${submission.target_shape} wave
-- Going ${submission.octaves} octave(s) ${submission.direction} means ${submission.direction === 'higher' ? 'doubling' : 'halving'} the frequency${submission.octaves === 2 ? ' twice (4x or ÷4)' : ''}
+BINARY MARKING RULES (1 mark per question):
+Award 1 mark ONLY if BOTH conditions are met:
+1. CYCLE COUNT: The blue line has ${expectedCycles} complete cycles
+2. WAVEFORM SHAPE: The blue line shows a correct ${submission.target_shape} wave
 
-MARKING CRITERIA (10 marks total):
-1. CYCLE COUNT (4 marks): Count the complete cycles in the blue student drawing. Expected: ${expectedCycles} cycles
-2. SHAPE ACCURACY (4 marks): Is the blue line a correct ${submission.target_shape} wave shape?
-3. DRAWING QUALITY (2 marks): Is the drawing clear, consistent in amplitude, and well-executed?
+Award 0 marks if either condition is wrong.
 
-Please analyze the image carefully and provide your assessment as JSON in this exact format:
+Count cycles by counting complete oscillations (peak-to-trough-to-peak = 1 cycle).
+For octave changes: ${submission.direction} by ${submission.octaves} octave(s) means ${submission.direction === 'higher' ? 'multiply' : 'divide'} cycles by ${Math.pow(2, submission.octaves)}.
+
+IMPORTANT: In your feedback, address the student directly using "you" (e.g. "You drew..." not "The student drew...").
+
+Provide your assessment as JSON:
 {
   "cycleCount": {
-    "detected": <number of cycles you count in the blue line>,
+    "detected": <number of complete cycles in the blue line>,
     "expected": ${expectedCycles},
-    "correct": <true if detected equals expected, false otherwise>,
-    "marks": <0-4 based on accuracy>,
-    "feedback": "<specific feedback about cycle count>"
+    "correct": <true if detected equals expected>
   },
   "shapeAccuracy": {
-    "detected": "<what shape you see: sine/square/saw/triangle/unclear>",
+    "detected": "<sine/square/saw/triangle/unclear>",
     "expected": "${submission.target_shape}",
-    "correct": <true if shape matches, false otherwise>,
-    "marks": <0-4 based on accuracy>,
-    "feedback": "<specific feedback about shape>"
+    "correct": <true if shape matches>
   },
-  "drawingQuality": {
-    "marks": <0-2>,
-    "feedback": "<feedback about clarity and consistency>"
-  },
-  "overallFeedback": "<2-3 sentences summarizing the student's work>",
-  "strengths": ["<strength 1>", "<strength 2 if applicable>"],
-  "improvements": ["<improvement 1>", "<improvement 2 if applicable>"],
-  "suggestedMark": <total out of 10>,
-  "confidence": "<high/medium/low - how confident you are in this assessment>"
+  "mark": <1 if BOTH cycleCount.correct AND shapeAccuracy.correct are true, otherwise 0>,
+  "feedback": "<brief feedback addressing the student directly using 'you' - e.g. 'Well done! You drew...' or 'You drew X cycles but needed Y...'>"
 }
 
-Return ONLY the JSON object, no other text.`;
+Return ONLY the JSON object.`;
+        }
 
         // Build message content with one or two images
         const messageContent = [];
@@ -263,11 +392,12 @@ Return ONLY the JSON object, no other text.`;
         }
 
         // Save feedback to database
+        // Use 'mark' for new binary marking, fall back to 'suggestedMark' for compatibility
         const { error: updateError } = await supabase
             .from('submissions')
             .update({
                 ai_feedback: feedback,
-                ai_mark: feedback.suggestedMark,
+                ai_mark: feedback.mark !== undefined ? feedback.mark : feedback.suggestedMark,
                 ai_marked_at: new Date().toISOString(),
             })
             .eq('id', submissionId);

@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { getAssessment, assessmentExists } from '@/lib/assessments';
 import { theme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
 import WaveformAssessment from '@/components/WaveformAssessment';
+import PeriodWaveformAssessment from '@/components/PeriodWaveformAssessment';
 import EQFilterAssessment from '@/components/EQFilterAssessment';
 import QuizAssessment from '@/components/engines/QuizAssessment';
 import ListeningAssessment from '@/components/engines/ListeningAssessment';
@@ -121,6 +122,9 @@ export default function AssessmentPage() {
         case 'drawing':
             if (assessmentId === 'waveform-octaves') {
                 return <WaveformAssessment initialName={studentName} />;
+            }
+            if (assessmentId === 'waveform-periods') {
+                return <PeriodWaveformAssessment initialName={studentName} />;
             }
             if (assessmentId === 'eq-filter-drawing') {
                 return <EQFilterAssessment initialName={studentName} />;

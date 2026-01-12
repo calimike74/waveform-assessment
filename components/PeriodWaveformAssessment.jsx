@@ -3,14 +3,15 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { theme as designTheme, typography, borderRadius, spacing, transitions, assessmentColors } from '@/lib/theme';
+import waveformPeriodsConfig from '@/lib/assessments/waveform-periods';
 
 // ============================================
-// OCTAVE WAVEFORM DRAWING ASSESSMENT
-// Educational Light Theme with Dark Canvas
-// 10 Challenges - Submissions saved for marking
+// PERIOD WAVEFORM DRAWING ASSESSMENT
+// Students draw waveforms with specific periods (ms)
+// No reference waveform - draw from scratch
 // ============================================
 
-const WaveformAssessment = ({ initialName = '' }) => {
+const PeriodWaveformAssessment = ({ initialName = '' }) => {
     const [studentName, setStudentName] = useState(initialName);
     const [hasStarted, setHasStarted] = useState(!!initialName);
     const [currentChallenge, setCurrentChallenge] = useState(0);
@@ -41,43 +42,20 @@ const WaveformAssessment = ({ initialName = '' }) => {
 
     // Canvas-specific colors (exam-style graph paper)
     const canvasTheme = {
-        bg: '#f5f5f5',           // Light gray outer background
-        bgGraph: '#ffffff',      // White graph paper background
-        gridFine: '#c0c0c0',     // Fine grid lines (light gray)
-        gridMajor: '#404040',    // Major grid lines (dark gray)
-        centerLine: '#000000',   // Center line (black)
-        axisLine: '#000000',     // Axis lines (black)
-        text: '#000000',         // Text (black)
-        textSecondary: '#666666', // Secondary text (dark gray)
-        userLine: '#2563eb',     // User drawing (blue)
-        originalLine: 'rgba(100, 100, 100, 0.6)', // Original waveform (gray dashed)
+        bg: '#f5f5f5',
+        bgGraph: '#ffffff',
+        gridFine: '#c0c0c0',
+        gridMajor: '#404040',
+        centerLine: '#000000',
+        axisLine: '#000000',
+        text: '#000000',
+        textSecondary: '#666666',
+        userLine: '#2563eb',
     };
 
-    // Waveform shape definitions
-    const waveformShapes = {
-        sine: {
-            name: 'Sine',
-            draw: (progress, cycles) => Math.sin(progress * cycles * 2 * Math.PI)
-        },
-        square: {
-            name: 'Square',
-            draw: (progress, cycles) => Math.sign(Math.sin(progress * cycles * 2 * Math.PI))
-        },
-        saw: {
-            name: 'Saw',
-            draw: (progress, cycles) => {
-                const phase = (progress * cycles) % 1;
-                return 2 * phase - 1;
-            }
-        },
-        triangle: {
-            name: 'Triangle',
-            draw: (progress, cycles) => {
-                const phase = (progress * cycles) % 1;
-                return 4 * Math.abs(phase - 0.5) - 1;
-            }
-        }
-    };
+    // Get challenges and shapes from config
+    const challenges = waveformPeriodsConfig.challenges;
+    const waveformShapes = waveformPeriodsConfig.shapes;
 
     // Difficulty/type colors
     const challengeColors = {
@@ -88,149 +66,10 @@ const WaveformAssessment = ({ initialName = '' }) => {
         red: t.accent.error,
     };
 
-    // The 10 assessment challenges
-    const challenges = [
-        {
-            id: 1,
-            name: 'Sine → Sine (Octave Lower)',
-            originalCycles: 4,
-            targetCycles: 2,
-            originalShape: 'sine',
-            targetShape: 'sine',
-            direction: 'lower',
-            octaves: 1,
-            description: 'Draw a SINE wave ONE OCTAVE LOWER',
-            hint: 'Same shape, but period doubles → half as many cycles.',
-            colorKey: 'green'
-        },
-        {
-            id: 2,
-            name: 'Square → Square (Octave Higher)',
-            originalCycles: 2,
-            targetCycles: 4,
-            originalShape: 'square',
-            targetShape: 'square',
-            direction: 'higher',
-            octaves: 1,
-            description: 'Draw a SQUARE wave ONE OCTAVE HIGHER',
-            hint: 'Same shape, but period halves → twice as many cycles.',
-            colorKey: 'amber'
-        },
-        {
-            id: 3,
-            name: 'Square → Saw (Octave Lower)',
-            originalCycles: 4,
-            targetCycles: 2,
-            originalShape: 'square',
-            targetShape: 'saw',
-            direction: 'lower',
-            octaves: 1,
-            description: 'Draw a SAW wave ONE OCTAVE LOWER',
-            hint: '2023 Exam Style! Change shape AND double the period.',
-            colorKey: 'cyan',
-            examStyle: true
-        },
-        {
-            id: 4,
-            name: 'Triangle → Triangle (Octave Lower)',
-            originalCycles: 6,
-            targetCycles: 3,
-            originalShape: 'triangle',
-            targetShape: 'triangle',
-            direction: 'lower',
-            octaves: 1,
-            description: 'Draw a TRIANGLE wave ONE OCTAVE LOWER',
-            hint: 'Same shape. 6 cycles → 3 cycles.',
-            colorKey: 'green'
-        },
-        {
-            id: 5,
-            name: 'Sine → Square (Octave Higher)',
-            originalCycles: 3,
-            targetCycles: 6,
-            originalShape: 'sine',
-            targetShape: 'square',
-            direction: 'higher',
-            octaves: 1,
-            description: 'Draw a SQUARE wave ONE OCTAVE HIGHER',
-            hint: 'Change to square wave AND double the cycles.',
-            colorKey: 'amber',
-            examStyle: true
-        },
-        {
-            id: 6,
-            name: 'Saw → Saw (Two Octaves Lower)',
-            originalCycles: 8,
-            targetCycles: 2,
-            originalShape: 'saw',
-            targetShape: 'saw',
-            direction: 'lower',
-            octaves: 2,
-            description: 'Draw a SAW wave TWO OCTAVES LOWER',
-            hint: 'Two octaves = ÷4 cycles. 8 → 2 cycles.',
-            colorKey: 'purple'
-        },
-        {
-            id: 7,
-            name: 'Triangle → Sine (Octave Lower)',
-            originalCycles: 4,
-            targetCycles: 2,
-            originalShape: 'triangle',
-            targetShape: 'sine',
-            direction: 'lower',
-            octaves: 1,
-            description: 'Draw a SINE wave ONE OCTAVE LOWER',
-            hint: 'Change shape from triangle to sine, and double the period.',
-            colorKey: 'cyan',
-            examStyle: true
-        },
-        {
-            id: 8,
-            name: 'Square → Triangle (Two Octaves Higher)',
-            originalCycles: 2,
-            targetCycles: 8,
-            originalShape: 'square',
-            targetShape: 'triangle',
-            direction: 'higher',
-            octaves: 2,
-            description: 'Draw a TRIANGLE wave TWO OCTAVES HIGHER',
-            hint: 'Change to triangle AND multiply cycles by 4.',
-            colorKey: 'red',
-            examStyle: true
-        },
-        {
-            id: 9,
-            name: 'Saw → Square (Octave Higher)',
-            originalCycles: 4,
-            targetCycles: 8,
-            originalShape: 'saw',
-            targetShape: 'square',
-            direction: 'higher',
-            octaves: 1,
-            description: 'Draw a SQUARE wave ONE OCTAVE HIGHER',
-            hint: 'Change shape from saw to square, period halves.',
-            colorKey: 'amber',
-            examStyle: true
-        },
-        {
-            id: 10,
-            name: 'Sine → Sine (Octave Higher)',
-            originalCycles: 3,
-            targetCycles: 6,
-            originalShape: 'sine',
-            targetShape: 'sine',
-            direction: 'higher',
-            octaves: 1,
-            description: 'Draw a SINE wave ONE OCTAVE HIGHER',
-            hint: 'Same shape. 3 cycles → 6 cycles.',
-            colorKey: 'amber'
-        }
-    ];
-
     const currentChallengeData = challenges[currentChallenge];
     const getChallengeColor = (colorKey) => challengeColors[colorKey] || t.accent.primary;
 
-    // Generate correct answer image for AI comparison (exam-style graph paper)
+    // Generate correct answer image for AI comparison
     const generateCorrectAnswerImage = useCallback((challenge) => {
         if (!challenge) return null;
 
@@ -253,7 +92,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
         ctx.fillStyle = canvasTheme.bgGraph;
         ctx.fillRect(pad.left, pad.top, graphWidth, graphHeight);
 
-        // Calculate grid spacing (matching drawGrid)
+        // Calculate grid spacing
         const majorDivisionsX = 5;
         const minorPerMajorX = 10;
         const totalMinorX = majorDivisionsX * minorPerMajorX;
@@ -321,48 +160,32 @@ const WaveformAssessment = ({ initialName = '' }) => {
         ctx.lineTo(pad.left + graphWidth, pad.top + graphHeight);
         ctx.stroke();
 
-        // X-axis numbers
+        // X-axis numbers (0, 1, 2, 3, 4, 5)
         ctx.fillStyle = canvasTheme.text;
         ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
 
-        for (let i = 1; i <= majorDivisionsX; i++) {
+        for (let i = 0; i <= majorDivisionsX; i++) {
             const x = pad.left + (i / majorDivisionsX) * graphWidth;
             ctx.fillText(String(i), x, pad.top + graphHeight + 10);
         }
 
-        // Draw original waveform (dashed gray)
-        const originalShape = waveformShapes[challenge.originalShape];
-        if (originalShape) {
-            ctx.strokeStyle = canvasTheme.originalLine;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([8, 6]);
-            ctx.beginPath();
-
-            for (let i = 0; i <= graphWidth; i++) {
-                const progress = i / graphWidth;
-                const value = originalShape.draw(progress, challenge.originalCycles);
-                const x = pad.left + i;
-                const y = centerY - (value * graphHeight * 0.35);
-
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
+        // X-axis label
+        ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('Time (ms)', pad.left + graphWidth, pad.top + graphHeight + 35);
 
         // Draw correct answer (solid green)
-        const targetShape = waveformShapes[challenge.targetShape];
-        if (targetShape) {
+        const shape = waveformShapes[challenge.shape];
+        if (shape) {
             ctx.strokeStyle = '#10b981';
             ctx.lineWidth = 3;
             ctx.beginPath();
 
             for (let i = 0; i <= graphWidth; i++) {
                 const progress = i / graphWidth;
-                const value = targetShape.draw(progress, challenge.targetCycles);
+                const value = shape.draw(progress, challenge.expectedCycles);
                 const x = pad.left + i;
                 const y = centerY - (value * graphHeight * 0.35);
 
@@ -373,19 +196,20 @@ const WaveformAssessment = ({ initialName = '' }) => {
         }
 
         // Labels
-        ctx.fillStyle = canvasTheme.text;
+        ctx.fillStyle = '#10b981';
         ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(`Original: ${challenge.originalShape} (${challenge.originalCycles} cycles)`, pad.left, pad.top - 8);
-
-        ctx.fillStyle = '#10b981';
-        ctx.fillText(`Correct: ${challenge.targetShape} (${challenge.targetCycles} cycles)`, pad.left + 300, pad.top - 8);
+        ctx.fillText(
+            `Correct: ${challenge.shape} (${challenge.expectedCycles} cycles, period=${challenge.periodMs}ms)`,
+            pad.left,
+            pad.top - 8
+        );
 
         return canvas.toDataURL('image/png');
     }, [waveformShapes, canvasTheme]);
 
-    // Draw the waveform grid and reference (exam-style graph paper)
+    // Draw the waveform grid (exam-style graph paper with Time axis)
     const drawGrid = useCallback((ctx) => {
         const innerWidth = canvasWidth - padding.left - padding.right;
         const innerHeight = canvasHeight - padding.top - padding.bottom;
@@ -399,22 +223,18 @@ const WaveformAssessment = ({ initialName = '' }) => {
         ctx.fillRect(padding.left, padding.top, innerWidth, innerHeight);
 
         // Calculate grid spacing for exam-style graph paper
-        // X-axis: 5 major divisions (0-5 ms), with 10 minor divisions each
-        const majorDivisionsX = 5;  // 5 major intervals on x-axis
-        const minorPerMajorX = 10;  // 10 small squares per major division
+        const majorDivisionsX = 5;
+        const minorPerMajorX = 10;
         const totalMinorX = majorDivisionsX * minorPerMajorX;
         const minorSpacingX = innerWidth / totalMinorX;
-
-        // Y-axis: matching proportions for square grid cells
-        const minorSpacingY = minorSpacingX;  // Square cells
+        const minorSpacingY = minorSpacingX;
         const totalMinorY = Math.floor(innerHeight / minorSpacingY);
         const majorDivisionsY = Math.floor(totalMinorY / minorPerMajorX);
 
-        // Draw fine grid lines (thin, light gray)
+        // Draw fine grid lines
         ctx.strokeStyle = canvasTheme.gridFine;
         ctx.lineWidth = 0.5;
 
-        // Vertical fine grid lines
         for (let i = 0; i <= totalMinorX; i++) {
             const x = padding.left + i * minorSpacingX;
             ctx.beginPath();
@@ -423,7 +243,6 @@ const WaveformAssessment = ({ initialName = '' }) => {
             ctx.stroke();
         }
 
-        // Horizontal fine grid lines
         for (let i = 0; i <= totalMinorY; i++) {
             const y = padding.top + i * minorSpacingY;
             ctx.beginPath();
@@ -432,11 +251,10 @@ const WaveformAssessment = ({ initialName = '' }) => {
             ctx.stroke();
         }
 
-        // Draw major grid lines (thicker, darker)
+        // Draw major grid lines
         ctx.strokeStyle = canvasTheme.gridMajor;
         ctx.lineWidth = 1.5;
 
-        // Vertical major grid lines (at each ms mark: 1, 2, 3, 4, 5)
         for (let i = 0; i <= majorDivisionsX; i++) {
             const x = padding.left + (i / majorDivisionsX) * innerWidth;
             ctx.beginPath();
@@ -445,7 +263,6 @@ const WaveformAssessment = ({ initialName = '' }) => {
             ctx.stroke();
         }
 
-        // Horizontal major grid lines
         const majorSpacingY = minorSpacingY * minorPerMajorX;
         for (let i = 0; i <= majorDivisionsY; i++) {
             const y = padding.top + i * majorSpacingY;
@@ -455,7 +272,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
             ctx.stroke();
         }
 
-        // Center line (zero displacement) - thicker black line
+        // Center line (zero displacement)
         const centerY = padding.top + innerHeight / 2;
         ctx.strokeStyle = canvasTheme.centerLine;
         ctx.lineWidth = 2;
@@ -464,7 +281,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
         ctx.lineTo(padding.left + innerWidth, centerY);
         ctx.stroke();
 
-        // Draw axes border (black)
+        // Draw axes border
         ctx.strokeStyle = canvasTheme.axisLine;
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -473,20 +290,18 @@ const WaveformAssessment = ({ initialName = '' }) => {
         ctx.lineTo(padding.left + innerWidth, padding.top + innerHeight);
         ctx.stroke();
 
-        // X-axis tick marks and numbers (1, 2, 3, 4, 5)
+        // X-axis tick marks and numbers (0, 1, 2, 3, 4, 5) - KEY CHANGE: includes zero
         ctx.fillStyle = canvasTheme.text;
         ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
 
-        for (let i = 1; i <= majorDivisionsX; i++) {
+        for (let i = 0; i <= majorDivisionsX; i++) {
             const x = padding.left + (i / majorDivisionsX) * innerWidth;
-            // Tick mark
             ctx.beginPath();
             ctx.moveTo(x, padding.top + innerHeight);
             ctx.lineTo(x, padding.top + innerHeight + 6);
             ctx.stroke();
-            // Number
             ctx.fillText(String(i), x, padding.top + innerHeight + 10);
         }
 
@@ -497,7 +312,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
         ctx.textBaseline = 'middle';
         ctx.fillText('Time (ms)', padding.left + innerWidth, padding.top + innerHeight + 35);
 
-        // Y-axis label "Displacement" (rotated)
+        // Y-axis label "Displacement"
         ctx.save();
         ctx.translate(padding.left - 35, padding.top + innerHeight / 2);
         ctx.rotate(-Math.PI / 2);
@@ -506,52 +321,27 @@ const WaveformAssessment = ({ initialName = '' }) => {
         ctx.fillText('Displacement', 0, 0);
         ctx.restore();
 
-        // Draw ORIGINAL waveform as dashed reference
-        if (currentChallengeData) {
-            const midY = padding.top + innerHeight / 2;
-            const amplitude = innerHeight * 0.35;
-            const shapeFunc = waveformShapes[currentChallengeData.originalShape]?.draw || waveformShapes.sine.draw;
-            const shapeName = waveformShapes[currentChallengeData.originalShape]?.name || 'Sine';
+        // NO original waveform - student draws from scratch
 
-            ctx.strokeStyle = canvasTheme.originalLine;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([8, 6]);
-            ctx.beginPath();
-
-            for (let i = 0; i <= innerWidth; i++) {
-                const x = padding.left + i;
-                const progress = i / innerWidth;
-                const y = midY - shapeFunc(progress, currentChallengeData.originalCycles) * amplitude;
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Original waveform label
-            ctx.fillStyle = canvasTheme.textSecondary;
-            ctx.font = '11px ui-monospace, monospace';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(`Original: ${shapeName} (${currentChallengeData.originalCycles} cycles)`, padding.left + 8, padding.top + 8);
-        }
-
-        // Header with challenge info (above graph)
+        // Header with challenge info
         ctx.fillStyle = canvasTheme.text;
         ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'bottom';
-        ctx.fillText(`Challenge ${currentChallenge + 1}: ${currentChallengeData?.name || ''}`, padding.left, padding.top - 8);
+        ctx.fillText(
+            `Challenge ${currentChallenge + 1}: ${currentChallengeData?.shape?.toUpperCase()} wave, Period = ${currentChallengeData?.periodMs}ms`,
+            padding.left,
+            padding.top - 8
+        );
 
         ctx.fillStyle = canvasTheme.textSecondary;
         ctx.font = '11px -apple-system, sans-serif';
         ctx.textAlign = 'right';
         ctx.fillText(studentName || 'Student Name', canvasWidth - padding.right, padding.top - 8);
 
-        // Target shape badge (inside graph area, top right)
+        // Expected cycles badge
         if (currentChallengeData) {
-            const targetShapeName = waveformShapes[currentChallengeData.targetShape]?.name || 'Sine';
-            const badgeText = `Draw: ${targetShapeName}`;
+            const badgeText = `Expected: ${currentChallengeData.expectedCycles} cycles`;
             ctx.font = 'bold 11px ui-monospace, monospace';
             const badgeWidth = ctx.measureText(badgeText).width + 16;
             const badgeX = padding.left + innerWidth - badgeWidth - 8;
@@ -571,9 +361,9 @@ const WaveformAssessment = ({ initialName = '' }) => {
             ctx.textBaseline = 'middle';
             ctx.fillText(badgeText, badgeX + badgeWidth/2, padding.top + 19);
         }
-    }, [currentChallengeData, currentChallenge, studentName, canvasTheme, waveformShapes, getChallengeColor]);
+    }, [currentChallengeData, currentChallenge, studentName, canvasTheme, getChallengeColor]);
 
-    // Draw user's line (clear blue on white background)
+    // Draw user's line
     const drawUserLine = useCallback((ctx) => {
         if (userPoints.length < 2) return;
 
@@ -711,13 +501,12 @@ const WaveformAssessment = ({ initialName = '' }) => {
             const { data, error } = await supabase
                 .from('submissions')
                 .insert({
-                    assessment_id: 'waveform-octaves',
+                    assessment_id: 'waveform-periods',
                     student_name: studentName,
                     challenge_number: currentChallenge + 1,
-                    original_shape: currentChallengeData.originalShape,
-                    target_shape: currentChallengeData.targetShape,
-                    direction: currentChallengeData.direction,
-                    octaves: currentChallengeData.octaves,
+                    shape: currentChallengeData.shape,
+                    period_ms: currentChallengeData.periodMs,
+                    expected_cycles: currentChallengeData.expectedCycles,
                     drawing_image: imageData,
                 })
                 .select('id')
@@ -913,7 +702,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
                             lineHeight: typography.lineHeight.tight,
                         }}
                     >
-                        Octave Waveform Drawing
+                        Period Waveform Drawing
                     </h1>
 
                     <p
@@ -924,8 +713,9 @@ const WaveformAssessment = ({ initialName = '' }) => {
                             marginBottom: spacing[8],
                         }}
                     >
-                        You'll see an original waveform. Draw what it would look like at a{' '}
-                        <strong style={{ color: t.text.primary }}>different octave</strong>.
+                        Draw waveforms with specific{' '}
+                        <strong style={{ color: t.text.primary }}>periods (in milliseconds)</strong>.
+                        Given a period, draw the waveform showing the correct number of cycles in a 5ms window.
                         Each drawing will be{' '}
                         <strong style={{ color: t.accent.primary }}>submitted for marking</strong>.
                     </p>
@@ -1009,10 +799,10 @@ const WaveformAssessment = ({ initialName = '' }) => {
                                     margin: 0,
                                 }}
                             >
-                                <li>Look at the dashed <strong style={{ color: t.text.primary }}>original</strong> waveform</li>
-                                <li>Draw the <strong style={{ color: t.text.primary }}>transposed</strong> waveform</li>
+                                <li>Read the <strong style={{ color: t.text.primary }}>period</strong> and shape for each challenge</li>
+                                <li>Calculate cycles: <strong style={{ color: t.text.primary }}>5ms / period = cycles</strong></li>
+                                <li>Draw the waveform with the <strong style={{ color: t.text.primary }}>correct number of cycles</strong></li>
                                 <li>Click <strong style={{ color: t.text.primary }}>"Submit"</strong> to submit for marking</li>
-                                <li>Complete all <strong style={{ color: t.text.primary }}>10 challenges</strong></li>
                             </ol>
                         </div>
 
@@ -1092,7 +882,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
                                 marginBottom: spacing[1],
                             }}
                         >
-                            Octave Waveform Drawing Assessment
+                            Period Waveform Drawing Assessment
                         </p>
                         <h1
                             style={{
@@ -1269,31 +1059,22 @@ const WaveformAssessment = ({ initialName = '' }) => {
                             >
                                 {currentChallengeData.description}
                             </h2>
+                            <p
+                                style={{
+                                    fontSize: typography.size.sm,
+                                    color: t.text.secondary,
+                                    marginTop: spacing[2],
+                                }}
+                            >
+                                {currentChallengeData.hint}
+                            </p>
                         </div>
 
-                        {/* Challenge details */}
+                        {/* Challenge details - Period focused */}
                         <div style={{ display: 'flex', gap: spacing[3], flexWrap: 'wrap' }}>
                             <div
                                 style={{
-                                    background: t.bg.tertiary,
-                                    borderRadius: borderRadius.lg,
-                                    padding: spacing[3],
-                                    border: `1px solid ${t.border.subtle}`,
-                                    textAlign: 'center',
-                                    minWidth: '80px',
-                                }}
-                            >
-                                <div style={{ fontSize: typography.size.xs, color: t.text.tertiary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing.wide, marginBottom: spacing[1] }}>
-                                    Original
-                                </div>
-                                <div style={{ fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: t.text.secondary, fontFamily: typography.fontFamilyMono }}>
-                                    {waveformShapes[currentChallengeData.originalShape]?.name}
-                                </div>
-                            </div>
-
-                            <div
-                                style={{
-                                    background: t.bg.tertiary,
+                                    background: `${getChallengeColor(currentChallengeData.colorKey)}10`,
                                     borderRadius: borderRadius.lg,
                                     padding: spacing[3],
                                     border: `1px solid ${getChallengeColor(currentChallengeData.colorKey)}40`,
@@ -1302,55 +1083,53 @@ const WaveformAssessment = ({ initialName = '' }) => {
                                 }}
                             >
                                 <div style={{ fontSize: typography.size.xs, color: t.text.tertiary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing.wide, marginBottom: spacing[1] }}>
-                                    Draw
+                                    Shape
                                 </div>
                                 <div style={{ fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: getChallengeColor(currentChallengeData.colorKey), fontFamily: typography.fontFamilyMono }}>
-                                    {waveformShapes[currentChallengeData.targetShape]?.name}
+                                    {waveformShapes[currentChallengeData.shape]?.name}
                                 </div>
                             </div>
 
                             <div
                                 style={{
-                                    background: currentChallengeData.direction === 'lower' ? `${t.accent.success}10` : `${t.accent.warning}10`,
+                                    background: `${t.accent.primary}10`,
                                     borderRadius: borderRadius.lg,
                                     padding: spacing[3],
-                                    border: `1px solid ${currentChallengeData.direction === 'lower' ? t.accent.success : t.accent.warning}40`,
+                                    border: `1px solid ${t.accent.primary}40`,
                                     textAlign: 'center',
                                     minWidth: '80px',
                                 }}
                             >
                                 <div style={{ fontSize: typography.size.xs, color: t.text.tertiary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing.wide, marginBottom: spacing[1] }}>
-                                    Octaves
+                                    Period
                                 </div>
-                                <div style={{ fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: currentChallengeData.direction === 'lower' ? t.accent.success : t.accent.warning, fontFamily: typography.fontFamilyMono }}>
-                                    {currentChallengeData.octaves} {currentChallengeData.direction === 'lower' ? '↓' : '↑'}
+                                <div style={{ fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: t.accent.primary, fontFamily: typography.fontFamilyMono }}>
+                                    {currentChallengeData.periodMs}ms
                                 </div>
                             </div>
 
-                            {currentChallengeData.originalShape !== currentChallengeData.targetShape && (
-                                <div
-                                    style={{
-                                        background: `${t.accent.info}10`,
-                                        borderRadius: borderRadius.lg,
-                                        padding: spacing[3],
-                                        border: `1px solid ${t.accent.info}40`,
-                                        textAlign: 'center',
-                                        minWidth: '80px',
-                                    }}
-                                >
-                                    <div style={{ fontSize: typography.size.xs, color: t.text.tertiary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing.wide, marginBottom: spacing[1] }}>
-                                        Shape
-                                    </div>
-                                    <div style={{ fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: t.accent.info, fontFamily: typography.fontFamilyMono }}>
-                                        CHANGES
-                                    </div>
+                            <div
+                                style={{
+                                    background: `${t.accent.success}10`,
+                                    borderRadius: borderRadius.lg,
+                                    padding: spacing[3],
+                                    border: `1px solid ${t.accent.success}40`,
+                                    textAlign: 'center',
+                                    minWidth: '80px',
+                                }}
+                            >
+                                <div style={{ fontSize: typography.size.xs, color: t.text.tertiary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing.wide, marginBottom: spacing[1] }}>
+                                    Cycles
                                 </div>
-                            )}
+                                <div style={{ fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: t.accent.success, fontFamily: typography.fontFamilyMono }}>
+                                    {currentChallengeData.expectedCycles}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Canvas (exam-style graph paper) */}
+                {/* Canvas */}
                 <div
                     style={{
                         background: canvasTheme.bg,
@@ -1398,10 +1177,6 @@ const WaveformAssessment = ({ initialName = '' }) => {
                         border: `1px solid ${t.border.subtle}`,
                     }}
                 >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
-                        <div style={{ width: '24px', height: '2px', borderTop: `2px dashed #666666` }} />
-                        <span style={{ color: t.text.secondary, fontSize: typography.size.sm }}>Original</span>
-                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2] }}>
                         <div style={{ width: '24px', height: '3px', background: '#2563eb', borderRadius: '2px' }} />
                         <span style={{ color: t.text.secondary, fontSize: typography.size.sm }}>Your Drawing</span>
@@ -1608,35 +1383,35 @@ const WaveformAssessment = ({ initialName = '' }) => {
                                 </>
                             ) : currentFeedback ? (
                                 <>
-                                    {/* Header with binary mark result */}
+                                    {/* Header with mark result */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing[5] }}>
                                         <div>
                                             <h3 id="feedback-title" style={{ color: t.text.primary, fontSize: typography.size.lg, fontWeight: typography.weight.semibold, marginBottom: spacing[1] }}>
                                                 Challenge {currentChallenge + 1} Result
                                             </h3>
                                             <p style={{ color: t.text.tertiary, fontSize: typography.size.sm }}>
-                                                Binary marking: correct cycles + correct shape = 1 mark
+                                                Period: {currentChallengeData.periodMs}ms | Expected: {currentChallengeData.expectedCycles} cycles
                                             </p>
                                         </div>
                                         <div
                                             style={{
-                                                background: (currentFeedback.mark === 1 || currentFeedback.suggestedMark >= 7) ? `${t.accent.success}15` : `${t.accent.error}15`,
-                                                border: `2px solid ${(currentFeedback.mark === 1 || currentFeedback.suggestedMark >= 7) ? t.accent.success : t.accent.error}`,
+                                                background: (currentFeedback.mark === 1) ? `${t.accent.success}15` : `${t.accent.error}15`,
+                                                border: `2px solid ${(currentFeedback.mark === 1) ? t.accent.success : t.accent.error}`,
                                                 borderRadius: borderRadius.xl,
                                                 padding: `${spacing[3]} ${spacing[4]}`,
                                                 textAlign: 'center',
                                                 minWidth: '80px',
                                             }}
                                         >
-                                            <div style={{ fontSize: typography.size['2xl'], fontWeight: typography.weight.bold, color: (currentFeedback.mark === 1 || currentFeedback.suggestedMark >= 7) ? t.accent.success : t.accent.error, fontFamily: typography.fontFamilyMono }}>
-                                                {currentFeedback.mark !== undefined ? `${currentFeedback.mark}/1` : `${currentFeedback.suggestedMark}/10`}
+                                            <div style={{ fontSize: typography.size['2xl'], fontWeight: typography.weight.bold, color: (currentFeedback.mark === 1) ? t.accent.success : t.accent.error, fontFamily: typography.fontFamilyMono }}>
+                                                {currentFeedback.mark}/1
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Binary marking criteria */}
+                                    {/* Marking criteria */}
                                     <div style={{ display: 'grid', gap: spacing[3], marginBottom: spacing[4] }}>
-                                        {/* Cycle Count Check */}
+                                        {/* Cycle Count */}
                                         <div style={{
                                             background: t.bg.tertiary,
                                             borderRadius: borderRadius.lg,
@@ -1663,13 +1438,13 @@ const WaveformAssessment = ({ initialName = '' }) => {
                                                     Cycle Count
                                                 </div>
                                                 <div style={{ color: t.text.secondary, fontSize: typography.size.sm }}>
-                                                    Expected: {currentFeedback.cycleCount?.expected} cycles •
+                                                    Expected: {currentFeedback.cycleCount?.expected} cycles |
                                                     You drew: {currentFeedback.cycleCount?.detected} cycles
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Shape Accuracy Check */}
+                                        {/* Shape Accuracy */}
                                         <div style={{
                                             background: t.bg.tertiary,
                                             borderRadius: borderRadius.lg,
@@ -1696,33 +1471,67 @@ const WaveformAssessment = ({ initialName = '' }) => {
                                                     Waveform Shape
                                                 </div>
                                                 <div style={{ color: t.text.secondary, fontSize: typography.size.sm }}>
-                                                    Expected: {currentFeedback.shapeAccuracy?.expected} •
+                                                    Expected: {currentFeedback.shapeAccuracy?.expected} |
                                                     Detected: {currentFeedback.shapeAccuracy?.detected}
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Transition Timing (for square/saw waves) */}
+                                        {currentFeedback.transitionTiming && (
+                                            <div style={{
+                                                background: t.bg.tertiary,
+                                                borderRadius: borderRadius.lg,
+                                                padding: spacing[4],
+                                                border: `2px solid ${currentFeedback.transitionTiming?.correct ? t.accent.success : t.accent.error}`,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: spacing[3]
+                                            }}>
+                                                <div style={{
+                                                    fontSize: '1.5rem',
+                                                    width: '40px',
+                                                    height: '40px',
+                                                    borderRadius: '50%',
+                                                    background: currentFeedback.transitionTiming?.correct ? `${t.accent.success}20` : `${t.accent.error}20`,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}>
+                                                    {currentFeedback.transitionTiming?.correct ? '✓' : '✗'}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ color: t.text.primary, fontWeight: typography.weight.semibold, marginBottom: spacing[1] }}>
+                                                        Transition Timing
+                                                    </div>
+                                                    <div style={{ color: t.text.secondary, fontSize: typography.size.sm }}>
+                                                        Assessment: {currentFeedback.transitionTiming?.assessment}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {/* Feedback explanation */}
+                                    {/* Feedback */}
                                     <div style={{ background: t.bg.tertiary, borderRadius: borderRadius.lg, padding: spacing[4], marginBottom: spacing[4], border: `1px solid ${t.border.subtle}` }}>
                                         <p style={{ color: t.text.primary, fontSize: typography.size.base, lineHeight: typography.lineHeight.relaxed, margin: 0 }}>
-                                            {currentFeedback.feedback || currentFeedback.overallFeedback}
+                                            {currentFeedback.feedback}
                                         </p>
                                     </div>
 
                                     {/* Result summary */}
                                     <div style={{
-                                        background: (currentFeedback.mark === 1 || (currentFeedback.cycleCount?.correct && currentFeedback.shapeAccuracy?.correct)) ? `${t.accent.success}10` : `${t.accent.error}10`,
+                                        background: currentFeedback.mark === 1 ? `${t.accent.success}10` : `${t.accent.error}10`,
                                         borderRadius: borderRadius.lg,
                                         padding: spacing[4],
                                         marginBottom: spacing[4],
-                                        border: `1px solid ${(currentFeedback.mark === 1 || (currentFeedback.cycleCount?.correct && currentFeedback.shapeAccuracy?.correct)) ? t.accent.success : t.accent.error}30`,
+                                        border: `1px solid ${currentFeedback.mark === 1 ? t.accent.success : t.accent.error}30`,
                                         textAlign: 'center'
                                     }}>
                                         <p style={{ color: t.text.primary, fontSize: typography.size.base, fontWeight: typography.weight.semibold, margin: 0 }}>
-                                            {(currentFeedback.mark === 1 || (currentFeedback.cycleCount?.correct && currentFeedback.shapeAccuracy?.correct))
-                                                ? '1 mark awarded - Both criteria met!'
-                                                : '0 marks - One or both criteria not met'}
+                                            {currentFeedback.mark === 1
+                                                ? '1 mark awarded - All criteria met!'
+                                                : '0 marks - One or more criteria not met'}
                                         </p>
                                     </div>
 
@@ -1849,4 +1658,4 @@ const WaveformAssessment = ({ initialName = '' }) => {
     );
 };
 
-export default WaveformAssessment;
+export default PeriodWaveformAssessment;
