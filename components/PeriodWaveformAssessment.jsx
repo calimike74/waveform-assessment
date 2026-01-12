@@ -504,9 +504,6 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                     assessment_id: 'waveform-periods',
                     student_name: studentName,
                     challenge_number: currentChallenge + 1,
-                    shape: currentChallengeData.shape,
-                    period_ms: currentChallengeData.periodMs,
-                    expected_cycles: currentChallengeData.expectedCycles,
                     drawing_image: imageData,
                 })
                 .select('id')
