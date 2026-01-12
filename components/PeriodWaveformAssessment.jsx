@@ -504,6 +504,11 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                     assessment_id: 'waveform-periods',
                     student_name: studentName,
                     challenge_number: currentChallenge + 1,
+                    // Use existing schema columns for compatibility
+                    original_shape: currentChallengeData.shape,
+                    target_shape: currentChallengeData.shape,
+                    direction: 'period',
+                    octaves: currentChallengeData.periodMs,
                     drawing_image: imageData,
                 })
                 .select('id')
