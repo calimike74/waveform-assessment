@@ -1,3 +1,11 @@
+# Waveform Assessment
+
+A-Level Music Technology interactive assessment platform for drawing and analyzing waveforms.
+
+**Live**: [waveform-assessment.vercel.app](https://waveform-assessment.vercel.app)
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
