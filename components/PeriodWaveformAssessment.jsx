@@ -1145,15 +1145,7 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                             >
                                 {currentChallengeData.description}
                             </h2>
-                            <p
-                                style={{
-                                    fontSize: typography.size.sm,
-                                    color: t.text.secondary,
-                                    marginTop: spacing[2],
-                                }}
-                            >
-                                {currentChallengeData.hint}
-                            </p>
+{/* Hint removed - reveals answers */}
                         </div>
 
                         {/* Challenge details - Period focused */}
@@ -1194,23 +1186,6 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                                 </div>
                             </div>
 
-                            <div
-                                style={{
-                                    background: `${t.accent.success}10`,
-                                    borderRadius: borderRadius.lg,
-                                    padding: spacing[3],
-                                    border: `1px solid ${t.accent.success}40`,
-                                    textAlign: 'center',
-                                    minWidth: '80px',
-                                }}
-                            >
-                                <div style={{ fontSize: typography.size.xs, color: t.text.tertiary, textTransform: 'uppercase', letterSpacing: typography.letterSpacing.wide, marginBottom: spacing[1] }}>
-                                    Cycles
-                                </div>
-                                <div style={{ fontSize: typography.size.sm, fontWeight: typography.weight.semibold, color: t.accent.success, fontFamily: typography.fontFamilyMono }}>
-                                    {currentChallengeData.expectedCycles}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
