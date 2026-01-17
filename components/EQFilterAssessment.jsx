@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { theme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
 import BatchMarkingProgress from './BatchMarkingProgress';
 import BatchResultsSummary from './BatchResultsSummary';
@@ -390,7 +390,7 @@ const EQFilterAssessment = ({ initialName = '' }) => {
     // Save drawing to Supabase
     const saveToDatabase = async (imageData) => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await getSupabase()
                 .from('submissions')
                 .insert({
                     assessment_id: 'eq-filter-drawing',

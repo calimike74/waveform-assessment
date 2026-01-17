@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { getAllAssessments } from '@/lib/assessments';
 import { theme as designTheme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
 
@@ -204,7 +204,7 @@ export default function TeacherDashboard() {
     const fetchSubmissions = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await getSupabase()
                 .from('submissions')
                 .select('*')
                 .order('created_at', { ascending: false });

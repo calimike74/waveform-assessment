@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { theme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
 import { Button, Card, Input } from '@/components/shared';
 
@@ -231,7 +231,7 @@ export default function ListeningAssessment({ assessment, initialName = '' }) {
                 }))
             };
 
-            const { error } = await supabase
+            const { error } = await getSupabase()
                 .from('submissions')
                 .insert({
                     assessment_id: assessment.id,

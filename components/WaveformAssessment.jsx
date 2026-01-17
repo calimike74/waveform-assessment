@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { theme as designTheme, typography, borderRadius, spacing, transitions, assessmentColors } from '@/lib/theme';
 import BatchMarkingProgress from './BatchMarkingProgress';
 import BatchResultsSummary from './BatchResultsSummary';
@@ -718,7 +718,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
     // Save drawing to Supabase
     const saveToDatabase = async (imageData) => {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await getSupabase()
                 .from('submissions')
                 .insert({
                     assessment_id: 'waveform-octaves',
