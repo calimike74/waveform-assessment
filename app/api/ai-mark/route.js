@@ -1,11 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 
-// Create Supabase client with service role for server-side operations
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Lazy Supabase client creation to avoid build-time errors
+let supabase = null;
+function getSupabase() {
+    if (!supabase) {
+        supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+    }
+    return supabase;
+}
 
 // Challenge definitions for waveform-octaves assessment
 const octaveChallengeData = {
@@ -171,7 +177,7 @@ export async function POST(request) {
         }
 
         // Fetch submission from database
-        const { data: submission, error: fetchError } = await supabase
+        const { data: submission, error: fetchError } = await getSupabase()
             .from('submissions')
             .select('*')
             .eq('id', submissionId)
@@ -393,7 +399,7 @@ Return ONLY the JSON object.`;
 
         // Save feedback to database
         // Use 'mark' for new binary marking, fall back to 'suggestedMark' for compatibility
-        const { error: updateError } = await supabase
+        const { error: updateError } = await getSupabase()
             .from('submissions')
             .update({
                 ai_feedback: feedback,
