@@ -4,6 +4,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { theme as designTheme, typography, borderRadius, spacing, transitions, assessmentColors } from '@/lib/theme';
 import waveformPeriodsConfig from '@/lib/assessments/waveform-periods';
+import BatchMarkingProgress from './BatchMarkingProgress';
+import BatchResultsSummary from './BatchResultsSummary';
 
 // ============================================
 // PERIOD WAVEFORM DRAWING ASSESSMENT
@@ -32,6 +34,14 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedback, setCurrentFeedback] = useState(null);
     const [feedbackError, setFeedbackError] = useState(null);
+
+    // Batch marking state
+    const [savedDrawings, setSavedDrawings] = useState(new Map()); // Map<challengeIndex, submissionId>
+    const [isBatchMarking, setIsBatchMarking] = useState(false);
+    const [batchMarkingProgress, setBatchMarkingProgress] = useState({ current: 0, total: 0 });
+    const [showBatchResults, setShowBatchResults] = useState(false);
+    const [batchResults, setBatchResults] = useState([]);
+    const [batchSummary, setBatchSummary] = useState({ totalMark: 0, maxMark: 10, percentage: 0 });
 
     const canvasWidth = 700;
     const canvasHeight = 350;
@@ -547,8 +557,8 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
         }
     };
 
-    // Submit drawing with AI feedback
-    const submitDrawing = async () => {
+    // Save drawing to database (without AI marking - marking happens in batch at end)
+    const saveDrawing = async () => {
         const canvas = canvasRef.current;
         if (!canvas || userPoints.length < 5) return;
 
@@ -559,23 +569,97 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
             const imageData = canvas.toDataURL('image/png');
             const submissionId = await saveToDatabase(imageData);
             if (!submissionId) {
-                throw new Error('Failed to save submission');
+                throw new Error('Failed to save drawing');
             }
 
-            const correctAnswerImage = generateCorrectAnswerImage(currentChallengeData);
-            const feedback = await requestAIMarking(submissionId, correctAnswerImage);
+            // Track the saved drawing for batch marking
+            setSavedDrawings(prev => {
+                const newMap = new Map(prev);
+                newMap.set(currentChallenge, submissionId);
+                return newMap;
+            });
 
-            setCurrentFeedback(feedback);
-            setShowFeedbackModal(true);
             setCopiedChallenges(prev => new Set([...prev, currentChallenge]));
-            setCopyStatus('copied');
+            setCopyStatus('saved');
+
+            // Auto-advance to next question if not on the last one
+            if (currentChallenge < challenges.length - 1) {
+                setTimeout(() => {
+                    nextChallenge();
+                    setCopyStatus(null);
+                }, 800);
+            }
         } catch (err) {
-            console.error('Submission error:', err);
-            setFeedbackError(err.message || 'Submission failed');
+            console.error('Save error:', err);
+            setFeedbackError(err.message || 'Failed to save drawing');
             setShowFeedbackModal(true);
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    // Submit all saved drawings for batch AI marking
+    const submitAllForMarking = async () => {
+        if (savedDrawings.size === 0) return;
+
+        // Confirm if submitting partial assessment
+        if (savedDrawings.size < challenges.length) {
+            const confirmed = window.confirm(
+                `You have only saved ${savedDrawings.size} out of ${challenges.length} drawings. ` +
+                `Unsaved questions will receive 0 marks. Do you want to continue?`
+            );
+            if (!confirmed) return;
+        }
+
+        setIsBatchMarking(true);
+        setBatchMarkingProgress({ current: 0, total: savedDrawings.size });
+
+        try {
+            const submissionIds = Array.from(savedDrawings.values());
+
+            // Generate correct answer images for all challenges
+            const correctAnswerImages = {};
+            savedDrawings.forEach((_, challengeIndex) => {
+                const challenge = challenges[challengeIndex];
+                correctAnswerImages[challengeIndex + 1] = generateCorrectAnswerImage(challenge);
+            });
+
+            // Call batch marking API with progress tracking
+            const response = await fetch('/api/ai-mark-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    submissionIds,
+                    correctAnswerImages
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Batch marking failed');
+            }
+
+            const result = await response.json();
+
+            setBatchResults(result.results || []);
+            setBatchSummary(result.summary || { totalMark: 0, maxMark: savedDrawings.size, percentage: 0 });
+            setShowBatchResults(true);
+        } catch (err) {
+            console.error('Batch marking error:', err);
+            setFeedbackError(err.message || 'Failed to mark drawings');
+            setShowFeedbackModal(true);
+        } finally {
+            setIsBatchMarking(false);
+            setBatchMarkingProgress({ current: 0, total: 0 });
+        }
+    };
+
+    // Handle reviewing a specific question from batch results
+    const handleReviewQuestion = (challengeIndex, result) => {
+        setCurrentChallenge(challengeIndex);
+        setCurrentFeedback(result.feedback);
+        setShowBatchResults(false);
+        setShowFeedbackModal(true);
     };
 
     // Copy to clipboard
@@ -1214,14 +1298,14 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                             Clear
                         </button>
                         <button
-                            onClick={submitDrawing}
+                            onClick={saveDrawing}
                             disabled={userPoints.length < 5 || isSubmitting}
                             style={{
                                 padding: `${spacing[3]} ${spacing[5]}`,
                                 borderRadius: borderRadius.lg,
                                 border: 'none',
                                 background: userPoints.length >= 5 && !isSubmitting
-                                    ? (copyStatus === 'copied' ? t.accent.success : t.accent.primary)
+                                    ? (savedDrawings.has(currentChallenge) ? t.accent.success : t.accent.primary)
                                     : t.bg.tertiary,
                                 color: userPoints.length >= 5 && !isSubmitting ? t.text.inverse : t.text.tertiary,
                                 fontSize: typography.size.sm,
@@ -1233,9 +1317,9 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                                 transition: `all ${transitions.fast} ${transitions.easing}`,
                                 boxShadow: userPoints.length >= 5 && !isSubmitting ? t.shadow.md : 'none',
                             }}
-                            aria-label={isSubmitting ? 'Marking in progress' : 'Submit drawing for marking'}
+                            aria-label={isSubmitting ? 'Saving...' : 'Save drawing'}
                         >
-                            {isSubmitting ? 'Marking...' : copyStatus === 'copied' ? '✓ Submitted' : 'Submit Drawing'}
+                            {isSubmitting ? 'Saving...' : savedDrawings.has(currentChallenge) ? '✓ Saved' : 'Save Drawing'}
                         </button>
                     </div>
 
@@ -1279,13 +1363,17 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                     </div>
                 </div>
 
-                {/* Completion message */}
-                {copiedChallenges.size === 10 && (
+                {/* Submit All for Marking section */}
+                {savedDrawings.size > 0 && (
                     <div
                         style={{
                             marginTop: spacing[6],
-                            background: `${t.accent.success}10`,
-                            border: `1px solid ${t.accent.success}40`,
+                            background: savedDrawings.size === challenges.length
+                                ? `${t.accent.success}10`
+                                : `${t.accent.primary}10`,
+                            border: `1px solid ${savedDrawings.size === challenges.length
+                                ? t.accent.success
+                                : t.accent.primary}40`,
                             borderRadius: borderRadius.xl,
                             padding: spacing[6],
                             textAlign: 'center',
@@ -1297,24 +1385,61 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                                 width: '48px',
                                 height: '48px',
                                 borderRadius: '50%',
-                                background: `${t.accent.success}20`,
+                                background: savedDrawings.size === challenges.length
+                                    ? `${t.accent.success}20`
+                                    : `${t.accent.primary}20`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 margin: '0 auto',
                                 marginBottom: spacing[4],
                                 fontSize: '1.5rem',
-                                color: t.accent.success,
+                                color: savedDrawings.size === challenges.length
+                                    ? t.accent.success
+                                    : t.accent.primary,
                             }}
                         >
-                            ✓
+                            {savedDrawings.size === challenges.length ? '✓' : savedDrawings.size}
                         </div>
-                        <h3 style={{ color: t.accent.success, marginBottom: spacing[2], fontSize: typography.size.lg, fontWeight: typography.weight.semibold }}>
-                            Assessment Complete!
+                        <h3
+                            style={{
+                                color: savedDrawings.size === challenges.length
+                                    ? t.accent.success
+                                    : t.accent.primary,
+                                marginBottom: spacing[2],
+                                fontSize: typography.size.lg,
+                                fontWeight: typography.weight.semibold
+                            }}
+                        >
+                            {savedDrawings.size === challenges.length
+                                ? 'All Drawings Saved!'
+                                : `${savedDrawings.size} of ${challenges.length} Drawings Saved`}
                         </h3>
-                        <p style={{ color: t.text.secondary, fontSize: typography.size.base }}>
-                            All 10 drawings submitted. Your teacher will review and mark your work.
+                        <p style={{ color: t.text.secondary, fontSize: typography.size.base, marginBottom: spacing[4] }}>
+                            {savedDrawings.size === challenges.length
+                                ? 'Ready to submit for AI marking'
+                                : 'Save more drawings or submit now for partial marking'}
                         </p>
+                        <button
+                            onClick={submitAllForMarking}
+                            disabled={isBatchMarking}
+                            style={{
+                                padding: `${spacing[4]} ${spacing[8]}`,
+                                borderRadius: borderRadius.lg,
+                                border: 'none',
+                                background: savedDrawings.size === challenges.length
+                                    ? t.accent.success
+                                    : t.accent.primary,
+                                color: t.text.inverse,
+                                fontSize: typography.size.base,
+                                fontWeight: typography.weight.bold,
+                                cursor: isBatchMarking ? 'not-allowed' : 'pointer',
+                                boxShadow: t.shadow.md,
+                                transition: `all ${transitions.fast} ${transitions.easing}`,
+                            }}
+                        >
+                            Submit All for Marking ({savedDrawings.size}/{challenges.length})
+                        </button>
                     </div>
                 )}
 
@@ -1655,6 +1780,22 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                         </div>
                     </div>
                 )}
+
+                {/* Batch Marking Progress Modal */}
+                <BatchMarkingProgress
+                    currentQuestion={batchMarkingProgress.current}
+                    totalQuestions={batchMarkingProgress.total}
+                    isVisible={isBatchMarking}
+                />
+
+                {/* Batch Results Summary Modal */}
+                <BatchResultsSummary
+                    results={batchResults}
+                    summary={batchSummary}
+                    onReviewQuestion={handleReviewQuestion}
+                    onClose={() => setShowBatchResults(false)}
+                    isVisible={showBatchResults}
+                />
             </div>
         </div>
     );

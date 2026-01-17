@@ -3,6 +3,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { theme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
+import BatchMarkingProgress from './BatchMarkingProgress';
+import BatchResultsSummary from './BatchResultsSummary';
 
 // ============================================
 // EQ FILTER DRAWING ASSESSMENT
@@ -28,6 +30,14 @@ const EQFilterAssessment = ({ initialName = '' }) => {
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [currentFeedback, setCurrentFeedback] = useState(null);
     const [feedbackError, setFeedbackError] = useState(null);
+
+    // Batch marking state
+    const [savedDrawings, setSavedDrawings] = useState(new Map()); // Map<challengeIndex, submissionId>
+    const [isBatchMarking, setIsBatchMarking] = useState(false);
+    const [batchMarkingProgress, setBatchMarkingProgress] = useState({ current: 0, total: 0 });
+    const [showBatchResults, setShowBatchResults] = useState(false);
+    const [batchResults, setBatchResults] = useState([]);
+    const [batchSummary, setBatchSummary] = useState({ totalMark: 0, maxMark: 6, percentage: 0 });
 
     const t = theme.light;
     const canvasWidth = 700;
@@ -431,8 +441,8 @@ const EQFilterAssessment = ({ initialName = '' }) => {
         }
     };
 
-    // Submit drawing
-    const submitDrawing = async () => {
+    // Save drawing to database (without AI marking - marking happens in batch at end)
+    const saveDrawing = async () => {
         const canvas = canvasRef.current;
         if (!canvas || userPoints.length < 5) return;
 
@@ -443,22 +453,90 @@ const EQFilterAssessment = ({ initialName = '' }) => {
             const imageData = canvas.toDataURL('image/png');
             const submissionId = await saveToDatabase(imageData);
             if (!submissionId) {
-                throw new Error('Failed to save submission');
+                throw new Error('Failed to save drawing');
             }
 
-            const feedback = await requestAIMarking(submissionId);
+            // Track the saved drawing for batch marking
+            setSavedDrawings(prev => {
+                const newMap = new Map(prev);
+                newMap.set(currentChallenge, submissionId);
+                return newMap;
+            });
 
-            setCurrentFeedback(feedback);
-            setShowFeedbackModal(true);
             setSubmittedChallenges(prev => new Set([...prev, currentChallenge]));
-            setSubmitStatus('submitted');
+            setSubmitStatus('saved');
+
+            // Auto-advance to next question if not on the last one
+            if (currentChallenge < challenges.length - 1) {
+                setTimeout(() => {
+                    nextChallenge();
+                    setSubmitStatus(null);
+                }, 800);
+            }
         } catch (err) {
-            console.error('Submission error:', err);
-            setFeedbackError(err.message || 'Submission failed');
+            console.error('Save error:', err);
+            setFeedbackError(err.message || 'Failed to save drawing');
             setShowFeedbackModal(true);
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    // Submit all saved drawings for batch AI marking
+    const submitAllForMarking = async () => {
+        if (savedDrawings.size === 0) return;
+
+        // Confirm if submitting partial assessment
+        if (savedDrawings.size < challenges.length) {
+            const confirmed = window.confirm(
+                `You have only saved ${savedDrawings.size} out of ${challenges.length} drawings. ` +
+                `Unsaved questions will receive 0 marks. Do you want to continue?`
+            );
+            if (!confirmed) return;
+        }
+
+        setIsBatchMarking(true);
+        setBatchMarkingProgress({ current: 0, total: savedDrawings.size });
+
+        try {
+            const submissionIds = Array.from(savedDrawings.values());
+
+            // Call batch marking API
+            const response = await fetch('/api/ai-mark-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    submissionIds,
+                    correctAnswerImages: {} // EQ assessment doesn't use correct answer images
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Batch marking failed');
+            }
+
+            const result = await response.json();
+
+            setBatchResults(result.results || []);
+            setBatchSummary(result.summary || { totalMark: 0, maxMark: savedDrawings.size, percentage: 0 });
+            setShowBatchResults(true);
+        } catch (err) {
+            console.error('Batch marking error:', err);
+            setFeedbackError(err.message || 'Failed to mark drawings');
+            setShowFeedbackModal(true);
+        } finally {
+            setIsBatchMarking(false);
+            setBatchMarkingProgress({ current: 0, total: 0 });
+        }
+    };
+
+    // Handle reviewing a specific question from batch results
+    const handleReviewQuestion = (challengeIndex, result) => {
+        setCurrentChallenge(challengeIndex);
+        setCurrentFeedback(result.feedback);
+        setShowBatchResults(false);
+        setShowFeedbackModal(true);
     };
 
     // Navigation
@@ -1102,12 +1180,12 @@ const EQFilterAssessment = ({ initialName = '' }) => {
                             Clear Drawing
                         </button>
                         <button
-                            onClick={submitDrawing}
+                            onClick={saveDrawing}
                             disabled={userPoints.length < 5 || isSubmitting}
                             style={{
                                 padding: `${spacing[3]} ${spacing[6]}`,
                                 background: userPoints.length >= 5
-                                    ? submitStatus === 'submitted'
+                                    ? savedDrawings.has(currentChallenge)
                                         ? t.accent.success
                                         : t.accent.primary
                                     : t.bg.tertiary,
@@ -1122,14 +1200,14 @@ const EQFilterAssessment = ({ initialName = '' }) => {
                                 gap: spacing[2],
                                 transition: `all ${transitions.fast} ${transitions.easing}`,
                             }}
-                            aria-label={isSubmitting ? 'Submitting...' : 'Submit drawing for marking'}
+                            aria-label={isSubmitting ? 'Saving...' : 'Save drawing'}
                         >
                             {isSubmitting ? (
-                                <>Submitting...</>
-                            ) : submitStatus === 'submitted' ? (
-                                <>Submitted</>
+                                <>Saving...</>
+                            ) : savedDrawings.has(currentChallenge) ? (
+                                <>Saved</>
                             ) : (
-                                <>Submit</>
+                                <>Save</>
                             )}
                         </button>
                     </div>
@@ -1174,53 +1252,101 @@ const EQFilterAssessment = ({ initialName = '' }) => {
                     </div>
                 </div>
 
-                {/* Completion message */}
-                {submittedChallenges.size === 6 && (
+                {/* Submit All for Marking section */}
+                {savedDrawings.size > 0 && (
                     <div
                         style={{
                             marginTop: spacing[8],
-                            background: t.accent.successLight,
-                            border: `1px solid ${t.accent.success}40`,
+                            background: savedDrawings.size === challenges.length
+                                ? t.accent.successLight
+                                : `${t.accent.primary}10`,
+                            border: `1px solid ${savedDrawings.size === challenges.length
+                                ? t.accent.success
+                                : t.accent.primary}40`,
                             borderRadius: borderRadius.xl,
                             padding: spacing[6],
                             textAlign: 'center',
                         }}
                         role="status"
                     >
-                        <div style={{ fontSize: '2rem', marginBottom: spacing[2] }} aria-hidden="true">
-                            🎉
+                        <div
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: '50%',
+                                background: savedDrawings.size === challenges.length
+                                    ? `${t.accent.success}20`
+                                    : `${t.accent.primary}20`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                margin: '0 auto',
+                                marginBottom: spacing[4],
+                                fontSize: '1.5rem',
+                                color: savedDrawings.size === challenges.length
+                                    ? t.accent.success
+                                    : t.accent.primary,
+                            }}
+                        >
+                            {savedDrawings.size === challenges.length ? '✓' : savedDrawings.size}
                         </div>
                         <h3
                             style={{
-                                color: t.accent.success,
+                                color: savedDrawings.size === challenges.length
+                                    ? t.accent.success
+                                    : t.accent.primary,
                                 fontSize: typography.size.lg,
                                 fontWeight: typography.weight.bold,
                                 marginBottom: spacing[2],
                             }}
                         >
-                            Assessment Complete!
+                            {savedDrawings.size === challenges.length
+                                ? 'All Drawings Saved!'
+                                : `${savedDrawings.size} of ${challenges.length} Drawings Saved`}
                         </h3>
-                        <p style={{ color: t.text.secondary }}>
-                            All 6 drawings submitted. Your teacher will review your work.
+                        <p style={{ color: t.text.secondary, marginBottom: spacing[4] }}>
+                            {savedDrawings.size === challenges.length
+                                ? 'Ready to submit for AI marking'
+                                : 'Save more drawings or submit now for partial marking'}
                         </p>
-                        <a
-                            href="/"
+                        <button
+                            onClick={submitAllForMarking}
+                            disabled={isBatchMarking}
                             style={{
-                                display: 'inline-block',
-                                marginTop: spacing[4],
-                                padding: `${spacing[3]} ${spacing[6]}`,
-                                background: t.accent.primary,
-                                color: t.text.inverse,
+                                padding: `${spacing[4]} ${spacing[8]}`,
                                 borderRadius: borderRadius.lg,
-                                textDecoration: 'none',
-                                fontWeight: typography.weight.semibold,
-                                fontSize: typography.size.sm,
+                                border: 'none',
+                                background: savedDrawings.size === challenges.length
+                                    ? t.accent.success
+                                    : t.accent.primary,
+                                color: t.text.inverse,
+                                fontSize: typography.size.base,
+                                fontWeight: typography.weight.bold,
+                                cursor: isBatchMarking ? 'not-allowed' : 'pointer',
+                                boxShadow: t.shadow.md,
+                                transition: `all ${transitions.fast} ${transitions.easing}`,
                             }}
                         >
-                            Back to Assessment Hub
-                        </a>
+                            Submit All for Marking ({savedDrawings.size}/{challenges.length})
+                        </button>
                     </div>
                 )}
+
+                {/* Batch Marking Progress Modal */}
+                <BatchMarkingProgress
+                    currentQuestion={batchMarkingProgress.current}
+                    totalQuestions={batchMarkingProgress.total}
+                    isVisible={isBatchMarking}
+                />
+
+                {/* Batch Results Summary Modal */}
+                <BatchResultsSummary
+                    results={batchResults}
+                    summary={batchSummary}
+                    onReviewQuestion={handleReviewQuestion}
+                    onClose={() => setShowBatchResults(false)}
+                    isVisible={showBatchResults}
+                />
             </div>
         </div>
     );
