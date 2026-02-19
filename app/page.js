@@ -1,9 +1,77 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { getAllAssessments, getAssessmentsGroupedByTopic, typeIcons, typeLabels } from '@/lib/assessments';
 import { theme, typography, borderRadius, spacing, transitions, focusRing } from '@/lib/theme';
+
+// Skeleton card for loading states
+function SkeletonCard() {
+    const t = theme.light;
+    const shimmerBg = `linear-gradient(90deg, ${t.bg.tertiary} 25%, ${t.bg.secondary} 50%, ${t.bg.tertiary} 75%)`;
+    return (
+        <div style={{
+            background: t.bg.primary,
+            borderRadius: borderRadius.xl,
+            border: `1px solid ${t.border.subtle}`,
+            overflow: 'hidden',
+        }}>
+            <div style={{
+                padding: `${spacing[4]} ${spacing[5]}`,
+                borderBottom: `1px solid ${t.border.subtle}`,
+            }}>
+                <div style={{
+                    height: '16px',
+                    width: '60%',
+                    borderRadius: borderRadius.md,
+                    background: shimmerBg,
+                    backgroundSize: '200% 100%',
+                    animation: 'skeletonShimmer 1.5s ease-in-out infinite',
+                }} />
+            </div>
+            <div style={{ padding: spacing[3], display: 'flex', flexDirection: 'column', gap: spacing[2] }}>
+                {[1, 2].map(i => (
+                    <div key={i} style={{
+                        padding: spacing[4],
+                        borderRadius: borderRadius.lg,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing[3],
+                    }}>
+                        <div style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: borderRadius.full,
+                            background: shimmerBg,
+                            backgroundSize: '200% 100%',
+                            animation: 'skeletonShimmer 1.5s ease-in-out infinite',
+                            flexShrink: 0,
+                        }} />
+                        <div style={{ flex: 1 }}>
+                            <div style={{
+                                height: '14px',
+                                width: '75%',
+                                borderRadius: borderRadius.sm,
+                                background: shimmerBg,
+                                backgroundSize: '200% 100%',
+                                animation: 'skeletonShimmer 1.5s ease-in-out infinite',
+                                marginBottom: spacing[1],
+                            }} />
+                            <div style={{
+                                height: '10px',
+                                width: '50%',
+                                borderRadius: borderRadius.sm,
+                                background: shimmerBg,
+                                backgroundSize: '200% 100%',
+                                animation: 'skeletonShimmer 1.5s ease-in-out infinite',
+                            }} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
 
 // Student Hub - Assessment Selection Page
 // Educational light theme for better readability and accessibility
@@ -13,28 +81,60 @@ export default function AssessmentHub() {
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const [activeType, setActiveType] = useState('all');
+    const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
+    const tabsRef = useRef({});
+    const tabContainerRef = useRef(null);
 
     const assessments = getAllAssessments();
     const groupedAssessments = getAssessmentsGroupedByTopic();
     const t = theme.light; // Use light theme
 
-    // Filter assessments based on search query
-    const filteredGroups = useMemo(() => {
-        if (!searchQuery.trim()) {
-            return groupedAssessments;
+    const tabs = [
+        { key: 'all', label: 'All' },
+        { key: 'drawing', label: 'Drawing', icon: '✏️' },
+        { key: 'quiz', label: 'Quiz', icon: '📝' },
+        { key: 'listening', label: 'Listening', icon: '🎧' },
+    ];
+
+    // Measure tab position for sliding pill
+    const updatePillPosition = useCallback(() => {
+        const activeTab = tabsRef.current[activeType];
+        const container = tabContainerRef.current;
+        if (activeTab && container) {
+            const containerRect = container.getBoundingClientRect();
+            const tabRect = activeTab.getBoundingClientRect();
+            setPillStyle({
+                left: tabRect.left - containerRect.left,
+                width: tabRect.width,
+            });
         }
-        const query = searchQuery.toLowerCase();
+    }, [activeType]);
+
+    useEffect(() => {
+        updatePillPosition();
+        window.addEventListener('resize', updatePillPosition);
+        return () => window.removeEventListener('resize', updatePillPosition);
+    }, [updatePillPosition]);
+
+    // Filter assessments based on search query AND type filter
+    const filteredGroups = useMemo(() => {
         return groupedAssessments
             .map(group => ({
                 topic: group.topic,
-                assessments: group.assessments.filter(
-                    a => a.title.toLowerCase().includes(query) ||
-                         a.description.toLowerCase().includes(query) ||
-                         group.topic.toLowerCase().includes(query)
-                )
+                assessments: group.assessments.filter(a => {
+                    const matchesType = activeType === 'all' || a.type === activeType;
+                    if (!searchQuery.trim()) return matchesType;
+                    const query = searchQuery.toLowerCase();
+                    const matchesSearch =
+                        a.title.toLowerCase().includes(query) ||
+                        a.description.toLowerCase().includes(query) ||
+                        group.topic.toLowerCase().includes(query);
+                    return matchesType && matchesSearch;
+                })
             }))
             .filter(group => group.assessments.length > 0);
-    }, [searchQuery, groupedAssessments]);
+    }, [searchQuery, activeType, groupedAssessments]);
 
     // Name entry screen
     if (!hasEnteredName) {
@@ -213,6 +313,16 @@ export default function AssessmentHub() {
                                     e.currentTarget.style.transform = 'none';
                                 }
                             }}
+                            onMouseDown={(e) => {
+                                if (studentName.trim()) {
+                                    e.currentTarget.style.transform = 'scale(0.97)';
+                                }
+                            }}
+                            onMouseUp={(e) => {
+                                if (studentName.trim()) {
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                }
+                            }}
                             aria-label="View available assessments"
                         >
                             View Assessments
@@ -291,6 +401,13 @@ export default function AssessmentHub() {
                         onMouseLeave={(e) => {
                             e.currentTarget.style.borderColor = t.border.medium;
                             e.currentTarget.style.color = t.text.secondary;
+                            e.currentTarget.style.transform = 'none';
+                        }}
+                        onMouseDown={(e) => {
+                            e.currentTarget.style.transform = 'scale(0.97)';
+                        }}
+                        onMouseUp={(e) => {
+                            e.currentTarget.style.transform = 'none';
                         }}
                         aria-label="Change your name"
                     >
@@ -373,7 +490,7 @@ export default function AssessmentHub() {
                             </button>
                         )}
                     </div>
-                    {searchQuery && (
+                    {(searchQuery || activeType !== 'all') && (
                         <p
                             style={{
                                 fontSize: typography.size.sm,
@@ -386,8 +503,74 @@ export default function AssessmentHub() {
                     )}
                 </div>
 
+                {/* Type filter tabs */}
+                <div
+                    style={{
+                        marginBottom: spacing[6],
+                    }}
+                >
+                    <div
+                        ref={tabContainerRef}
+                        style={{
+                            display: 'inline-flex',
+                            position: 'relative',
+                            background: t.bg.tertiary,
+                            borderRadius: borderRadius.full,
+                            padding: '4px',
+                        }}
+                        role="tablist"
+                        aria-label="Filter by assessment type"
+                    >
+                        {/* Sliding pill indicator */}
+                        <div
+                            style={{
+                                position: 'absolute',
+                                top: '4px',
+                                left: pillStyle.left,
+                                width: pillStyle.width,
+                                height: 'calc(100% - 8px)',
+                                background: t.accent.primary,
+                                borderRadius: borderRadius.full,
+                                transition: 'left 300ms cubic-bezier(0.34, 1.56, 0.64, 1), width 300ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                zIndex: 0,
+                            }}
+                            aria-hidden="true"
+                        />
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.key}
+                                ref={(el) => { tabsRef.current[tab.key] = el; }}
+                                onClick={() => setActiveType(tab.key)}
+                                role="tab"
+                                aria-selected={activeType === tab.key}
+                                aria-controls="assessment-grid"
+                                style={{
+                                    position: 'relative',
+                                    zIndex: 1,
+                                    padding: `${spacing[2]} ${spacing[4]}`,
+                                    border: 'none',
+                                    background: 'transparent',
+                                    borderRadius: borderRadius.full,
+                                    fontSize: typography.size.sm,
+                                    fontWeight: activeType === tab.key ? typography.weight.semibold : typography.weight.medium,
+                                    color: activeType === tab.key ? t.text.inverse : t.text.secondary,
+                                    cursor: 'pointer',
+                                    transition: `color 200ms ${transitions.easing}`,
+                                    whiteSpace: 'nowrap',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: spacing[1],
+                                }}
+                            >
+                                {tab.icon && <span aria-hidden="true">{tab.icon}</span>}
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Topic boxes grid */}
-                <main role="main" aria-label="Available assessments">
+                <main role="main" aria-label="Available assessments" id="assessment-grid">
                     <h2 className="sr-only">Select an Assessment</h2>
                     <div
                         style={{
@@ -459,92 +642,12 @@ export default function AssessmentHub() {
                                     }}
                                 >
                                     {topicAssessments.map((assessment) => (
-                                        <Link
+                                        <AssessmentItem
                                             key={assessment.id}
-                                            href={`/${assessment.id}?name=${encodeURIComponent(studentName)}`}
-                                            style={{ textDecoration: 'none' }}
-                                        >
-                                            <article
-                                                style={{
-                                                    background: t.bg.primary,
-                                                    borderRadius: borderRadius.lg,
-                                                    border: `1px solid ${t.border.subtle}`,
-                                                    padding: spacing[4],
-                                                    cursor: 'pointer',
-                                                    transition: `all ${transitions.fast} ${transitions.easing}`,
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.currentTarget.style.background = t.bg.secondary;
-                                                    e.currentTarget.style.borderColor = t.accent.primary + '60';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.style.background = t.bg.primary;
-                                                    e.currentTarget.style.borderColor = t.border.subtle;
-                                                }}
-                                                onFocus={(e) => {
-                                                    e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
-                                                    e.currentTarget.style.outlineOffset = '1px';
-                                                }}
-                                                onBlur={(e) => {
-                                                    e.currentTarget.style.outline = 'none';
-                                                }}
-                                                tabIndex={0}
-                                                aria-label={`${assessment.title} - ${assessment.description}`}
-                                            >
-                                                <div
-                                                    style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: spacing[3],
-                                                    }}
-                                                >
-                                                    <span
-                                                        style={{
-                                                            fontSize: '1.25rem',
-                                                            lineHeight: 1,
-                                                        }}
-                                                        aria-hidden="true"
-                                                    >
-                                                        {typeIcons[assessment.type] || '📋'}
-                                                    </span>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <h3
-                                                            style={{
-                                                                color: t.text.primary,
-                                                                fontSize: typography.size.sm,
-                                                                fontWeight: typography.weight.medium,
-                                                                margin: 0,
-                                                                lineHeight: typography.lineHeight.tight,
-                                                                whiteSpace: 'nowrap',
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                            }}
-                                                        >
-                                                            {assessment.title}
-                                                        </h3>
-                                                        <p
-                                                            style={{
-                                                                color: t.text.tertiary,
-                                                                fontSize: typography.size.xs,
-                                                                margin: 0,
-                                                                marginTop: spacing[1],
-                                                            }}
-                                                        >
-                                                            {typeLabels[assessment.type]} • {assessment.estimatedTime}
-                                                        </p>
-                                                    </div>
-                                                    <span
-                                                        style={{
-                                                            color: t.accent.primary,
-                                                            fontSize: typography.size.base,
-                                                        }}
-                                                        aria-hidden="true"
-                                                    >
-                                                        →
-                                                    </span>
-                                                </div>
-                                            </article>
-                                        </Link>
+                                            assessment={assessment}
+                                            studentName={studentName}
+                                            theme={t}
+                                        />
                                     ))}
                                 </div>
                             </section>
@@ -574,8 +677,8 @@ export default function AssessmentHub() {
                     </div>
                 )}
 
-                {/* Empty state - no search results */}
-                {assessments.length > 0 && filteredGroups.length === 0 && searchQuery && (
+                {/* Empty state - no search/filter results */}
+                {assessments.length > 0 && filteredGroups.length === 0 && (searchQuery || activeType !== 'all') && (
                     <div
                         style={{
                             textAlign: 'center',
@@ -588,12 +691,12 @@ export default function AssessmentHub() {
                         role="status"
                     >
                         <p style={{ fontSize: typography.size.lg }}>
-                            No assessments match "{searchQuery}"
+                            No assessments match{searchQuery ? ` "${searchQuery}"` : ''}{activeType !== 'all' ? ` in ${tabs.find(tab => tab.key === activeType)?.label}` : ''}
                         </p>
                         <p style={{ fontSize: typography.size.sm, marginTop: spacing[2] }}>
                             Try a different search term or{' '}
                             <button
-                                onClick={() => setSearchQuery('')}
+                                onClick={() => { setSearchQuery(''); setActiveType('all'); }}
                                 style={{
                                     background: 'none',
                                     border: 'none',
@@ -603,7 +706,7 @@ export default function AssessmentHub() {
                                     fontSize: 'inherit',
                                 }}
                             >
-                                clear the search
+                                clear all filters
                             </button>
                         </p>
                     </div>
@@ -625,5 +728,106 @@ export default function AssessmentHub() {
                 }
             `}</style>
         </div>
+    );
+}
+
+// Assessment item with cursor-tracking glow effect
+function AssessmentItem({ assessment, studentName, theme: t }) {
+    const [isHovered, setIsHovered] = useState(false);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const itemRef = useRef(null);
+
+    const handleMouseMove = useCallback((e) => {
+        const rect = itemRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }, []);
+
+    return (
+        <Link
+            href={`/${assessment.id}?name=${encodeURIComponent(studentName)}`}
+            style={{ textDecoration: 'none' }}
+        >
+            <article
+                ref={itemRef}
+                onMouseEnter={(e) => {
+                    setIsHovered(true);
+                    e.currentTarget.style.borderColor = t.accent.primary + '60';
+                }}
+                onMouseLeave={(e) => {
+                    setIsHovered(false);
+                    e.currentTarget.style.borderColor = t.border.subtle;
+                }}
+                onMouseMove={handleMouseMove}
+                onFocus={(e) => {
+                    e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
+                    e.currentTarget.style.outlineOffset = '1px';
+                }}
+                onBlur={(e) => {
+                    e.currentTarget.style.outline = 'none';
+                }}
+                tabIndex={0}
+                aria-label={`${assessment.title} - ${assessment.description}`}
+                style={{
+                    position: 'relative',
+                    overflow: 'hidden',
+                    background: t.bg.primary,
+                    borderRadius: borderRadius.lg,
+                    border: `1px solid ${t.border.subtle}`,
+                    padding: spacing[4],
+                    cursor: 'pointer',
+                    transition: `all ${transitions.fast} ${transitions.easing}`,
+                }}
+            >
+                {/* Glow layer */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: mousePos.y - 120,
+                        left: mousePos.x - 120,
+                        width: 240,
+                        height: 240,
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle, rgba(255, 107, 53, 0.4) 0%, rgba(255, 107, 53, 0.12) 40%, transparent 70%)',
+                        filter: 'blur(24px) saturate(3) brightness(1.1)',
+                        pointerEvents: 'none',
+                        opacity: isHovered ? 1 : 0,
+                        transition: 'opacity 300ms ease',
+                        zIndex: 0,
+                    }}
+                    aria-hidden="true"
+                />
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: spacing[3] }}>
+                    <span style={{ fontSize: '1.25rem', lineHeight: 1 }} aria-hidden="true">
+                        {typeIcons[assessment.type] || '📋'}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={{
+                            color: t.text.primary,
+                            fontSize: typography.size.sm,
+                            fontWeight: typography.weight.medium,
+                            margin: 0,
+                            lineHeight: typography.lineHeight.tight,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}>
+                            {assessment.title}
+                        </h3>
+                        <p style={{
+                            color: t.text.tertiary,
+                            fontSize: typography.size.xs,
+                            margin: 0,
+                            marginTop: spacing[1],
+                        }}>
+                            {typeLabels[assessment.type]} • {assessment.estimatedTime}
+                        </p>
+                    </div>
+                    <span style={{ color: t.accent.primary, fontSize: typography.size.base }} aria-hidden="true">
+                        →
+                    </span>
+                </div>
+            </article>
+        </Link>
     );
 }
