@@ -1,0 +1,50 @@
+# Waveform Assessment
+
+> An AI-marked drawing-based assessment tool for A-Level Music Technology waveform identification.
+
+Built by Mike Lehnert. Deployed at https://waveform-assessment.vercel.app
+
+## What This App Does
+
+Students listen to audio waveforms (sine, square, sawtooth, triangle) and draw the correct waveform shape on a canvas. Submissions are then marked automatically using the Claude Vision API, which compares the student's drawing against the mathematically correct waveform.
+
+### For Students
+- Listen to a generated waveform
+- Draw the waveform shape on an interactive canvas
+- Receive AI-generated feedback on accuracy
+- See a side-by-side comparison of their drawing vs. the correct answer
+
+### For the Teacher
+- View all student submissions in a dashboard
+- See AI-generated marks with colour-coded badges
+- Review detailed feedback including strengths, weaknesses, and improvement suggestions
+- Compare student drawings against correct answers in a modal view
+
+## Marking Criteria
+
+- **Cycle Count** (4 marks) — Did the student draw the correct number of cycles?
+- **Shape Accuracy** (4 marks) — Does the drawn shape match the waveform type?
+- **Drawing Quality** (2 marks) — Smoothness, proportion, and clarity
+- **Total:** 10 marks per submission
+
+## How It Works Technically
+
+1. The app generates a mathematically correct waveform (configurable type and cycle count)
+2. The student draws their interpretation on an HTML canvas
+3. Both images (student drawing + correct answer) are sent to the Claude Vision API
+4. Claude analyses the comparison and returns structured marks and feedback
+5. Results are stored in Supabase for teacher review
+
+## Tech Stack
+
+Next.js, React, Web Audio API, HTML Canvas, Supabase (PostgreSQL), Anthropic Claude Vision API, Vercel
+
+## Curriculum Context
+
+This assessment targets waveform identification skills within the Pearson Edexcel A-Level Music Technology specification (Component 4). Students need to recognise and reproduce standard waveform shapes as part of their understanding of synthesis and sound design.
+
+## Not Intended For
+
+- General-purpose drawing or art assessment
+- Music production workflows
+- Public use outside the specific classroom context
