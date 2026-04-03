@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef } from 'react';
-import { theme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
+import { theme, typography, borderRadius, spacing, transitions, glass } from '@/lib/theme';
 
 /**
  * Accessible Button Component
@@ -37,40 +37,52 @@ const Button = forwardRef(function Button(
     // Variant styles
     const variants = {
         primary: {
-            background: t.accent.primary,
+            background: glass.bgPrimary,
             color: t.text.inverse,
-            border: 'none',
-            hoverBackground: t.accent.primaryHover,
+            border: '1px solid ' + glass.border,
+            boxShadow: glass.shadowPrimary,
+            hoverBackground: glass.bgPrimaryHover,
+            hoverBoxShadow: glass.shadowPrimaryHover,
         },
         secondary: {
-            background: 'transparent',
+            background: glass.bg,
             color: t.text.primary,
-            border: `1px solid ${t.border.medium}`,
-            hoverBackground: t.bg.secondary,
+            border: '1px solid ' + glass.border,
+            boxShadow: glass.shadow,
+            hoverBackground: glass.bgHover,
+            hoverBoxShadow: glass.shadowHover,
         },
         success: {
-            background: t.accent.success,
+            background: glass.bgSuccess,
             color: t.text.inverse,
-            border: 'none',
-            hoverBackground: '#047857', // Darker green
+            border: '1px solid ' + glass.border,
+            boxShadow: glass.shadow,
+            hoverBackground: glass.bgSuccessHover,
+            hoverBoxShadow: glass.shadowHover,
         },
         danger: {
-            background: t.accent.error,
+            background: glass.bgDanger,
             color: t.text.inverse,
-            border: 'none',
-            hoverBackground: '#B91C1C', // Darker red
+            border: '1px solid ' + glass.border,
+            boxShadow: glass.shadow,
+            hoverBackground: glass.bgDangerHover,
+            hoverBoxShadow: glass.shadowHover,
         },
         warning: {
-            background: t.accent.warning,
+            background: glass.bgWarning,
             color: t.text.inverse,
-            border: 'none',
-            hoverBackground: '#B45309', // Darker amber
+            border: '1px solid ' + glass.border,
+            boxShadow: glass.shadow,
+            hoverBackground: glass.bgWarningHover,
+            hoverBoxShadow: glass.shadowHover,
         },
         ghost: {
-            background: 'transparent',
+            background: glass.bgGhost,
             color: t.text.secondary,
             border: 'none',
-            hoverBackground: t.bg.secondary,
+            boxShadow: 'none',
+            hoverBackground: glass.bgGhostHover,
+            hoverBoxShadow: 'none',
         },
     };
 
@@ -108,7 +120,7 @@ const Button = forwardRef(function Button(
         padding: currentSize.padding,
         borderRadius: borderRadius.lg,
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
-        transition: `all ${transitions.fast} ${transitions.easing}`,
+        transition: `all ${transitions.springDuration} ${transitions.spring}`,
         textDecoration: 'none',
         whiteSpace: 'nowrap',
         width: fullWidth ? '100%' : 'auto',
@@ -116,12 +128,16 @@ const Button = forwardRef(function Button(
         background: currentVariant.background,
         color: currentVariant.color,
         border: currentVariant.border,
+        boxShadow: currentVariant.boxShadow,
+        backdropFilter: 'blur(' + glass.blur + ')',
+        WebkitBackdropFilter: 'blur(' + glass.blur + ')',
         ...style,
     };
 
     const handleMouseEnter = (e) => {
         if (!disabled && !loading) {
             e.currentTarget.style.background = currentVariant.hoverBackground;
+            e.currentTarget.style.boxShadow = currentVariant.hoverBoxShadow;
             e.currentTarget.style.transform = 'translateY(-1px)';
         }
     };
@@ -129,17 +145,29 @@ const Button = forwardRef(function Button(
     const handleMouseLeave = (e) => {
         if (!disabled && !loading) {
             e.currentTarget.style.background = currentVariant.background;
+            e.currentTarget.style.boxShadow = currentVariant.boxShadow;
             e.currentTarget.style.transform = 'none';
         }
     };
 
+    const handleMouseDown = (e) => {
+        if (!disabled && !loading) {
+            e.currentTarget.style.transform = 'scale(0.97)';
+        }
+    };
+
+    const handleMouseUp = (e) => {
+        if (!disabled && !loading) {
+            e.currentTarget.style.transform = 'translateY(-1px)';
+        }
+    };
+
     const handleFocus = (e) => {
-        e.currentTarget.style.outline = `2px solid ${t.border.focus}`;
-        e.currentTarget.style.outlineOffset = '2px';
+        // Only show focus ring for keyboard navigation
     };
 
     const handleBlur = (e) => {
-        e.currentTarget.style.outline = 'none';
+        // Focus ring handled by :focus-visible in CSS
     };
 
     // Loading spinner
@@ -177,8 +205,8 @@ const Button = forwardRef(function Button(
             style={baseStyles}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
             {...props}
         >
             {loading && <LoadingSpinner />}
