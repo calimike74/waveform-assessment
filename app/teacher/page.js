@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getSupabase } from '@/lib/supabase';
 import { getAllAssessments } from '@/lib/assessments';
 import { theme as designTheme, typography, borderRadius, spacing, transitions } from '@/lib/theme';
 
@@ -204,12 +203,11 @@ export default function TeacherDashboard() {
     const fetchSubmissions = async () => {
         setLoading(true);
         try {
-            const { data, error } = await getSupabase()
-                .from('submissions')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const res = await fetch('/api/submissions', {
+                headers: { 'x-teacher-password': password },
+            });
+            if (!res.ok) throw new Error('Failed to fetch');
+            const { data } = await res.json();
             setSubmissions(data || []);
         } catch (err) {
             console.error('Error fetching submissions:', err);
