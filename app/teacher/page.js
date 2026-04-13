@@ -228,7 +228,7 @@ export default function TeacherDashboard() {
 
             const response = await fetch('/api/ai-mark', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-teacher-secret': process.env.NEXT_PUBLIC_TEACHER_API_SECRET || '' },
                 body: JSON.stringify({
                     submissionId,
                     correctAnswerImage: correctImage
@@ -285,7 +285,7 @@ export default function TeacherDashboard() {
 
                 const response = await fetch('/api/ai-mark', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'x-teacher-secret': process.env.NEXT_PUBLIC_TEACHER_API_SECRET || '' },
                     body: JSON.stringify({
                         submissionId: sub.id,
                         correctAnswerImage: correctImage

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { requireTeacherAuth } from '../../../lib/teacherAuth';
 
 // Lazy Supabase client creation to avoid build-time errors
 let supabase = null;
@@ -371,6 +372,9 @@ async function markSingleSubmission(anthropic, submission, correctAnswerImages) 
 }
 
 export async function POST(request) {
+    const authError = requireTeacherAuth(request);
+    if (authError) return authError;
+
     try {
         const { submissionIds, correctAnswerImages } = await request.json();
 

@@ -583,7 +583,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
         }
     }, [currentChallengeData, currentChallenge, studentName, canvasTheme, waveformShapes, getChallengeColor]);
 
-    // Draw user's line (clear blue on white background)
+    // Draw user's line (clear blue on white background, smoothed with quadratic curves)
     const drawUserLine = useCallback((ctx) => {
         if (userPoints.length < 2) return;
 
@@ -594,8 +594,17 @@ const WaveformAssessment = ({ initialName = '' }) => {
 
         ctx.beginPath();
         ctx.moveTo(userPoints[0].x, userPoints[0].y);
-        for (let i = 1; i < userPoints.length; i++) {
-            ctx.lineTo(userPoints[i].x, userPoints[i].y);
+
+        if (userPoints.length === 2) {
+            ctx.lineTo(userPoints[1].x, userPoints[1].y);
+        } else {
+            for (let i = 1; i < userPoints.length - 1; i++) {
+                const midX = (userPoints[i].x + userPoints[i + 1].x) / 2;
+                const midY = (userPoints[i].y + userPoints[i + 1].y) / 2;
+                ctx.quadraticCurveTo(userPoints[i].x, userPoints[i].y, midX, midY);
+            }
+            const last = userPoints[userPoints.length - 1];
+            ctx.lineTo(last.x, last.y);
         }
         ctx.stroke();
     }, [userPoints, canvasTheme]);
@@ -749,7 +758,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
         try {
             const response = await fetch('/api/ai-mark', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-teacher-secret': process.env.NEXT_PUBLIC_TEACHER_API_SECRET || '' },
                 body: JSON.stringify({ submissionId, correctAnswerImage }),
             });
 
@@ -836,7 +845,7 @@ const WaveformAssessment = ({ initialName = '' }) => {
             // Call batch marking API with progress tracking
             const response = await fetch('/api/ai-mark-batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-teacher-secret': process.env.NEXT_PUBLIC_TEACHER_API_SECRET || '' },
                 body: JSON.stringify({
                     submissionIds,
                     correctAnswerImages

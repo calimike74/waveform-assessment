@@ -373,7 +373,7 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
         }
     }, [currentChallengeData, currentChallenge, studentName, canvasTheme, getChallengeColor]);
 
-    // Draw user's line
+    // Draw user's line (smoothed with quadratic curves for ink feel)
     const drawUserLine = useCallback((ctx) => {
         if (userPoints.length < 2) return;
 
@@ -384,8 +384,17 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
 
         ctx.beginPath();
         ctx.moveTo(userPoints[0].x, userPoints[0].y);
-        for (let i = 1; i < userPoints.length; i++) {
-            ctx.lineTo(userPoints[i].x, userPoints[i].y);
+
+        if (userPoints.length === 2) {
+            ctx.lineTo(userPoints[1].x, userPoints[1].y);
+        } else {
+            for (let i = 1; i < userPoints.length - 1; i++) {
+                const midX = (userPoints[i].x + userPoints[i + 1].x) / 2;
+                const midY = (userPoints[i].y + userPoints[i + 1].y) / 2;
+                ctx.quadraticCurveTo(userPoints[i].x, userPoints[i].y, midX, midY);
+            }
+            const last = userPoints[userPoints.length - 1];
+            ctx.lineTo(last.x, last.y);
         }
         ctx.stroke();
     }, [userPoints, canvasTheme]);
@@ -540,7 +549,7 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
         try {
             const response = await fetch('/api/ai-mark', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-teacher-secret': process.env.NEXT_PUBLIC_TEACHER_API_SECRET || '' },
                 body: JSON.stringify({ submissionId, correctAnswerImage }),
             });
 
@@ -627,7 +636,7 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
             // Call batch marking API with progress tracking
             const response = await fetch('/api/ai-mark-batch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-teacher-secret': process.env.NEXT_PUBLIC_TEACHER_API_SECRET || '' },
                 body: JSON.stringify({
                     submissionIds,
                     correctAnswerImages
@@ -922,6 +931,16 @@ const PeriodWaveformAssessment = ({ initialName = '' }) => {
                                 if (studentName.trim()) {
                                     e.currentTarget.style.background = t.accent.primary;
                                     e.currentTarget.style.transform = 'none';
+                                }
+                            }}
+                            onMouseDown={(e) => {
+                                if (studentName.trim()) {
+                                    e.currentTarget.style.transform = 'scale(0.97)';
+                                }
+                            }}
+                            onMouseUp={(e) => {
+                                if (studentName.trim()) {
+                                    e.currentTarget.style.transform = 'translateY(-1px)';
                                 }
                             }}
                             aria-label="Start the assessment"
